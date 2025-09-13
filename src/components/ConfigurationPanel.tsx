@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Settings, Key, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { AVAILABLE_MODELS } from '@/lib/openRouterAPI';
 
 interface ConfigurationPanelProps {
   apiKey: string;
@@ -16,14 +17,7 @@ interface ConfigurationPanelProps {
   onTestConnection: () => void;
 }
 
-const availableModels = [
-  { id: 'openai/gpt-4-turbo', name: 'GPT-4 Turbo', provider: 'OpenAI' },
-  { id: 'openai/gpt-4', name: 'GPT-4', provider: 'OpenAI' },
-  { id: 'anthropic/claude-3-opus', name: 'Claude 3 Opus', provider: 'Anthropic' },
-  { id: 'anthropic/claude-3-sonnet', name: 'Claude 3 Sonnet', provider: 'Anthropic' },
-  { id: 'anthropic/claude-3-haiku', name: 'Claude 3 Haiku', provider: 'Anthropic' },
-  { id: 'google/gemini-pro', name: 'Gemini Pro', provider: 'Google' },
-];
+// Use the updated model list from OpenRouter API
 
 export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
   apiKey,
@@ -100,10 +94,17 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
                 <SelectValue placeholder="Select an AI model" />
               </SelectTrigger>
               <SelectContent>
-                {availableModels.map((model) => (
+                {AVAILABLE_MODELS.map((model) => (
                   <SelectItem key={model.id} value={model.id}>
                     <div className="flex items-center justify-between w-full">
-                      <span>{model.name}</span>
+                      <div className="flex items-center gap-2">
+                        <span>{model.name}</span>
+                        {model.isFree && (
+                          <span className="px-1.5 py-0.5 text-xs bg-green-100 text-green-800 rounded-full">
+                            FREE
+                          </span>
+                        )}
+                      </div>
                       <span className="text-xs text-muted-foreground ml-2">{model.provider}</span>
                     </div>
                   </SelectItem>

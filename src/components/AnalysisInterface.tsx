@@ -1,7 +1,6 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Play, Pause, Square, Brain, FileText, Loader2 } from 'lucide-react';
 
 interface AnalysisInterfaceProps {
@@ -25,7 +24,6 @@ export const AnalysisInterface: React.FC<AnalysisInterfaceProps> = ({
   onStopAnalysis,
   currentTask
 }) => {
-  const progress = totalPages > 0 ? (currentPage / totalPages) * 100 : 0;
 
   return (
     <div className="space-y-4">
@@ -58,11 +56,6 @@ export const AnalysisInterface: React.FC<AnalysisInterfaceProps> = ({
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                   <Loader2 className="w-4 h-4 animate-spin" />
                   <span>{currentTask}</span>
-                </div>
-                <Progress value={progress} className="h-2" />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Page {currentPage} of {totalPages}</span>
-                  <span>{Math.round(progress)}% complete</span>
                 </div>
               </div>
             )}

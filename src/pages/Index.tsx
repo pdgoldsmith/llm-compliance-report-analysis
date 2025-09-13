@@ -5,8 +5,10 @@ import { useToast } from '@/hooks/use-toast';
 import { UploadSection } from '@/components/UploadSection';
 import { ConfigurationPanel } from '@/components/ConfigurationPanel';
 import { AnalysisInterface } from '@/components/AnalysisInterface';
-import { ResultsDisplay } from '@/components/ResultsDisplay';
 import { FileSearch, Sparkles, Shield, Zap } from 'lucide-react';
+import { PDFProcessor, PDFInfo } from '@/lib/pdfProcessor';
+import { OpenRouterAPI } from '@/lib/openRouterAPI';
+import { ExcelExporter, SOC1ExcelData } from '@/lib/excelExporter';
 
 const Index = () => {
   const { toast } = useToast();
@@ -14,7 +16,7 @@ const Index = () => {
   // State management
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [apiKey, setApiKey] = useState('');
-  const [selectedModel, setSelectedModel] = useState('openai/gpt-4-turbo');
+  const [selectedModel, setSelectedModel] = useState('meta-llama/llama-3.3-70b-instruct:free');
   const [isConnected, setIsConnected] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -22,72 +24,191 @@ const Index = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [currentTask, setCurrentTask] = useState('');
   const [analysisResults, setAnalysisResults] = useState<any[]>([]);
-  const [showResults, setShowResults] = useState(false);
+  const [pdfInfo, setPdfInfo] = useState<PDFInfo | null>(null);
+  const [openRouterAPI, setOpenRouterAPI] = useState<OpenRouterAPI | null>(null);
 
-  const handleFileUpload = (file: File) => {
-    setUploadedFile(file);
-    setTotalPages(Math.floor(Math.random() * 100) + 50); // Mock page count
-    toast({
-      title: "File uploaded successfully",
-      description: `${file.name} has been uploaded and is ready for analysis.`,
-    });
+  const handleFileUpload = async (file: File) => {
+    try {
+      setUploadedFile(file);
+      setCurrentTask('Processing PDF...');
+      
+      // Get actual page count from PDF with retry logic
+      let pageCount: number;
+      let retryCount = 0;
+      const maxRetries = 2;
+      
+      while (retryCount <= maxRetries) {
+        try {
+          pageCount = await PDFProcessor.getPageCount(file);
+          break;
+        } catch (error) {
+          retryCount++;
+          if (retryCount > maxRetries) {
+            throw error;
+          }
+          
+          // If it's a worker error, wait a bit and try again
+          if (error instanceof Error && error.message.includes('worker')) {
+            console.log(`Retrying PDF processing (attempt ${retryCount + 1}/${maxRetries + 1})...`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            continue;
+          }
+          throw error;
+        }
+      }
+      
+      setTotalPages(pageCount!);
+      
+      toast({
+        title: "File uploaded successfully",
+        description: `${file.name} has been uploaded and is ready for analysis. (${pageCount} pages detected)`,
+      });
+    } catch (error) {
+      console.error('Error processing PDF:', error);
+      toast({
+        title: "Error processing PDF",
+        description: error instanceof Error ? error.message : 'Failed to process PDF file',
+        variant: "destructive",
+      });
+    }
   };
 
   const handleTestConnection = async () => {
+    if (!apiKey.trim()) {
+      toast({
+        title: "API Key Required",
+        description: "Please enter your OpenRouter API key first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsTesting(true);
     
-    // Mock API test
-    setTimeout(() => {
-      setIsConnected(true);
-      setIsTesting(false);
+    try {
+      const api = new OpenRouterAPI(apiKey);
+      const isConnected = await api.testConnection();
+      
+      if (isConnected) {
+        setIsConnected(true);
+        setOpenRouterAPI(api);
+        toast({
+          title: "Connection successful",
+          description: "OpenRouter API connection has been verified.",
+        });
+      } else {
+        throw new Error('Connection test failed');
+      }
+    } catch (error) {
+      console.error('API connection test failed:', error);
+      setIsConnected(false);
+      setOpenRouterAPI(null);
       toast({
-        title: "Connection successful",
-        description: "OpenRouter API connection has been verified.",
+        title: "Connection failed",
+        description: error instanceof Error ? error.message : 'Failed to connect to OpenRouter API',
+        variant: "destructive",
       });
-    }, 2000);
+    } finally {
+      setIsTesting(false);
+    }
   };
 
-  const handleStartAnalysis = () => {
+  const handleStartAnalysis = async () => {
+    if (!uploadedFile || !openRouterAPI) {
+      toast({
+        title: "Missing Requirements",
+        description: "Please upload a PDF file and test your API connection first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsAnalyzing(true);
-    setCurrentPage(1);
+    setCurrentPage(0);
     setCurrentTask('Initializing PDF processing...');
     
-    // Mock analysis progress
-    const mockAnalysis = () => {
-      const tasks = [
-        'Extracting text from PDF pages...',
-        'Detecting table structures...',
-        'Processing with AI model...',
-        'Extracting control information...',
-        'Analyzing exceptions and deviations...',
-        'Finalizing results...'
-      ];
+    try {
+      // Step 1: Extract PDF content
+      setCurrentTask('Extracting text from PDF...');
+      const pdfData = await PDFProcessor.processPDF(uploadedFile);
+      setPdfInfo(pdfData);
+      setCurrentPage(pdfData.totalPages);
       
-      let taskIndex = 0;
-      let pageCount = 1;
+      // Debug: Log PDF text length and first 500 characters
+      console.log('PDF text length:', pdfData.text.length);
+      console.log('PDF text preview:', pdfData.text.substring(0, 500));
       
-      const interval = setInterval(() => {
-        setCurrentPage(pageCount);
-        setCurrentTask(tasks[taskIndex % tasks.length]);
-        
-        pageCount += Math.floor(Math.random() * 3) + 1;
-        
-        if (pageCount >= totalPages) {
-          clearInterval(interval);
-          setIsAnalyzing(false);
-          setShowResults(true);
-          setCurrentTask('Analysis complete');
-          toast({
-            title: "Analysis complete",
-            description: "SOC1 report has been successfully analyzed.",
-          });
+      // Step 2: Analyze with AI
+      setCurrentTask('Analyzing with AI model...');
+      console.log('Starting AI analysis with model:', selectedModel);
+      console.log('PDF text length for analysis:', pdfData.text.length);
+      
+      const results = await openRouterAPI.analyzeSOC1Report(
+        pdfData.text,
+        selectedModel,
+        (progress, message) => {
+          setCurrentTask(message);
+          // Update progress based on the callback
+          const progressPercent = Math.round(progress);
+          setCurrentPage(Math.round((progressPercent / 100) * pdfData.totalPages));
         }
-        
-        taskIndex++;
-      }, 1500);
-    };
-    
-    mockAnalysis();
+      );
+      
+      // Step 3: Generate Excel file
+      setCurrentTask('Generating Excel report...');
+      console.log('Analysis results received:', results); // Debug log
+      
+      // Transform the results to Excel format with page numbers and confidence scores
+      const excelData: SOC1ExcelData = {
+        executiveSummary: results.rawResult?.executiveSummary || {
+          reportPeriod: 'Not specified',
+          serviceOrganization: 'Not specified',
+          auditor: 'Not specified',
+          opinion: 'Not specified'
+        },
+        controls: (results.rawResult?.controls || []).map((control: any) => ({
+          ...control,
+          pageNumbers: control.pageNumbers || [1],
+          confidenceScore: control.confidenceScore || 0.8
+        })),
+        findings: (results.rawResult?.findings || []).map((finding: any) => ({
+          ...finding,
+          pageNumbers: finding.pageNumbers || [1],
+          confidenceScore: finding.confidenceScore || 0.9
+        })),
+        complianceStatus: {
+          ...(results.rawResult?.complianceStatus || {
+            overall: 'Not assessed',
+            score: 0,
+            summary: 'No summary provided'
+          }),
+          pageNumbers: results.rawResult?.complianceStatus?.pageNumbers || [1],
+          confidenceScore: results.rawResult?.complianceStatus?.confidenceScore || 0.9
+        }
+      };
+      
+      // Generate timestamped filename
+      const filename = ExcelExporter.generateTimestampedFilename();
+      
+      // Generate and download Excel file
+      ExcelExporter.generateSOC1Excel(excelData, filename);
+      
+      toast({
+        title: "Analysis complete",
+        description: `SOC1 report has been analyzed and Excel file "${filename}" has been downloaded.`,
+      });
+      
+    } catch (error) {
+      console.error('Analysis failed:', error);
+      toast({
+        title: "Analysis failed",
+        description: error instanceof Error ? error.message : 'Failed to analyze the PDF',
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+      setCurrentTask('');
+    }
   };
 
   const handlePauseAnalysis = () => {
@@ -109,12 +230,6 @@ const Index = () => {
     });
   };
 
-  const handleExport = (format: 'json' | 'csv' | 'pdf') => {
-    toast({
-      title: `Exporting to ${format.toUpperCase()}`,
-      description: "Your analysis results are being prepared for download.",
-    });
-  };
 
   const isReady = uploadedFile && apiKey && isConnected;
 
@@ -148,8 +263,7 @@ const Index = () => {
       </header>
 
       {/* Hero Section */}
-      {!showResults && (
-        <section className="container mx-auto px-6 py-8">
+      <section className="container mx-auto px-6 py-8">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-bold text-foreground mb-3 bg-gradient-hero bg-clip-text text-transparent">
               Transform SOC1 Reports into Structured Insights
@@ -193,67 +307,46 @@ const Index = () => {
             </Card>
           </div>
         </section>
-      )}
 
       {/* Main Content */}
       <main className="container mx-auto px-6 pb-12">
-        {!showResults ? (
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Upload Section */}
-            <div>
-              <UploadSection
-                onFileUpload={handleFileUpload}
-                uploadedFile={uploadedFile}
-                isProcessing={isAnalyzing}
-              />
-            </div>
-            
-            {/* Configuration Section */}
-            <div>
-              <ConfigurationPanel
-                apiKey={apiKey}
-                setApiKey={setApiKey}
-                selectedModel={selectedModel}
-                setSelectedModel={setSelectedModel}
-                isConnected={isConnected}
-                isTesting={isTesting}
-                onTestConnection={handleTestConnection}
-              />
-            </div>
-
-            {/* Analysis Section */}
-            <div>
-              <AnalysisInterface
-                isReady={isReady}
-                isAnalyzing={isAnalyzing}
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onStartAnalysis={handleStartAnalysis}
-                onPauseAnalysis={handlePauseAnalysis}
-                onStopAnalysis={handleStopAnalysis}
-                currentTask={currentTask}
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <Button
-                variant="outline"
-                onClick={() => setShowResults(false)}
-              >
-                ← Back to Analysis
-              </Button>
-            </div>
-            
-            <ResultsDisplay
-              findings={[]}
-              categories={[]}
-              onExport={handleExport}
-              isLoading={false}
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Upload Section */}
+          <div>
+            <UploadSection
+              onFileUpload={handleFileUpload}
+              uploadedFile={uploadedFile}
+              isProcessing={isAnalyzing}
             />
           </div>
-        )}
+          
+          {/* Configuration Section */}
+          <div>
+            <ConfigurationPanel
+              apiKey={apiKey}
+              setApiKey={setApiKey}
+              selectedModel={selectedModel}
+              setSelectedModel={setSelectedModel}
+              isConnected={isConnected}
+              isTesting={isTesting}
+              onTestConnection={handleTestConnection}
+            />
+          </div>
+
+          {/* Analysis Section */}
+          <div>
+            <AnalysisInterface
+              isReady={isReady}
+              isAnalyzing={isAnalyzing}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onStartAnalysis={handleStartAnalysis}
+              onPauseAnalysis={handlePauseAnalysis}
+              onStopAnalysis={handleStopAnalysis}
+              currentTask={currentTask}
+            />
+          </div>
+        </div>
       </main>
     </div>
   );

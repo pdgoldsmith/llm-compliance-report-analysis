@@ -1,18 +1,26 @@
 {
-  "version": "1.0",
+  "version": "2.0",
   "reportType": "SOC1",
   "categories": [
     {
-      "id": "basic_info",
-      "name": "Basic Report Information",
+      "id": "executive_summary",
+      "name": "Executive Summary",
       "attributes": [
+        {
+          "id": "service_organization",
+          "name": "Service Organization",
+          "description": "Name of the service organization being audited",
+          "dataType": "text",
+          "required": true,
+          "extractionHints": ["service organization", "company name", "entity name"]
+        },
         {
           "id": "service_auditor",
           "name": "Service Auditor",
           "description": "Independent auditor who performed the examination",
           "dataType": "text",
           "required": true,
-          "extractionHints": ["auditor", "CPA firm", "accounting firm"]
+          "extractionHints": ["auditor", "CPA firm", "accounting firm", "examiner"]
         },
         {
           "id": "report_period",
@@ -20,7 +28,7 @@
           "description": "Time period covered by the report",
           "dataType": "dateRange",
           "required": true,
-          "extractionHints": ["period from", "period ended", "as of"]
+          "extractionHints": ["period from", "period ended", "as of", "through"]
         },
         {
           "id": "opinion_type",
@@ -28,13 +36,14 @@
           "description": "Type of opinion issued (Unqualified, Qualified, Adverse, Disclaimer)",
           "dataType": "enum",
           "enumValues": ["Unqualified", "Qualified", "Adverse", "Disclaimer"],
-          "required": true
+          "required": true,
+          "extractionHints": ["opinion", "conclusion", "unqualified", "qualified"]
         }
       ]
     },
     {
-      "id": "control_environment",
-      "name": "Control Environment",
+      "id": "controls",
+      "name": "Controls",
       "attributes": [
         {
           "id": "control_objectives",
@@ -42,38 +51,96 @@
           "description": "List of control objectives tested",
           "dataType": "array",
           "required": true,
-          "extractionHints": ["control objective", "CO-"]
+          "extractionHints": ["control objective", "CO-", "objective"]
         },
         {
           "id": "control_activities",
           "name": "Control Activities",
           "description": "Specific control activities implemented",
           "dataType": "array",
-          "required": true
-        }
-      ]
-    },
-    {
-      "id": "exceptions",
-      "name": "Exceptions and Deviations",
-      "attributes": [
+          "required": true,
+          "extractionHints": ["control activity", "control procedure", "activity"]
+        },
+        {
+          "id": "control_effectiveness",
+          "name": "Control Effectiveness",
+          "description": "Assessment of control effectiveness",
+          "dataType": "enum",
+          "enumValues": ["Effective", "Ineffective", "Not Tested", "Partially Effective"],
+          "required": true,
+          "extractionHints": ["effective", "ineffective", "operating effectively"]
+        },
         {
           "id": "control_exceptions",
           "name": "Control Exceptions",
           "description": "Identified exceptions to control operations",
-          "dataType": "table",
-          "tableColumns": ["Control", "Exception Description", "Frequency", "Management Response"],
-          "required": true,
+          "dataType": "array",
+          "required": false,
           "critical": true,
           "extractionHints": ["exception", "deviation", "deficiency", "finding"]
+        }
+      ]
+    },
+    {
+      "id": "findings",
+      "name": "Findings",
+      "attributes": [
+        {
+          "id": "significant_deficiencies",
+          "name": "Significant Deficiencies",
+          "description": "Significant deficiencies identified during the examination",
+          "dataType": "array",
+          "required": false,
+          "critical": true,
+          "extractionHints": ["significant deficiency", "significant finding"]
         },
         {
-          "id": "test_results",
-          "name": "Test Results",
-          "description": "Results of control testing procedures",
-          "dataType": "table",
-          "tableColumns": ["Control", "Test Procedure", "Sample Size", "Exceptions Found"],
-          "required": true
+          "id": "material_weaknesses",
+          "name": "Material Weaknesses",
+          "description": "Material weaknesses in internal control",
+          "dataType": "array",
+          "required": false,
+          "critical": true,
+          "extractionHints": ["material weakness", "material finding"]
+        },
+        {
+          "id": "other_findings",
+          "name": "Other Findings",
+          "description": "Other findings and observations",
+          "dataType": "array",
+          "required": false,
+          "extractionHints": ["finding", "observation", "recommendation"]
+        }
+      ]
+    },
+    {
+      "id": "compliance_status",
+      "name": "Compliance Status",
+      "attributes": [
+        {
+          "id": "overall_compliance",
+          "name": "Overall Compliance",
+          "description": "Overall compliance assessment",
+          "dataType": "enum",
+          "enumValues": ["Compliant", "Non-Compliant", "Partially Compliant", "Not Assessed"],
+          "required": true,
+          "extractionHints": ["compliant", "non-compliant", "overall assessment"]
+        },
+        {
+          "id": "compliance_score",
+          "name": "Compliance Score",
+          "description": "Numerical compliance score (0-100)",
+          "dataType": "number",
+          "required": false,
+          "extractionHints": ["score", "rating", "percentage"]
+        },
+        {
+          "id": "compliance_summary",
+          "name": "Compliance Summary",
+          "description": "Summary of compliance assessment",
+          "dataType": "text",
+          "required": false,
+          "extractionHints": ["summary", "conclusion", "assessment"]
         }
       ]
     },
@@ -86,7 +153,8 @@
           "name": "Subservice Organizations",
           "description": "List of subservice organizations used",
           "dataType": "array",
-          "required": false
+          "required": false,
+          "extractionHints": ["subservice", "third party", "vendor", "service provider"]
         },
         {
           "id": "carve_out_method",
@@ -94,7 +162,38 @@
           "description": "Method used for subservice organization controls",
           "dataType": "enum",
           "enumValues": ["Carve-out", "Inclusive", "Not Applicable"],
-          "required": true
+          "required": true,
+          "extractionHints": ["carve-out", "inclusive", "method"]
+        }
+      ]
+    },
+    {
+      "id": "additional_information",
+      "name": "Additional Information",
+      "attributes": [
+        {
+          "id": "management_assertion",
+          "name": "Management Assertion",
+          "description": "Management's assertion about the effectiveness of controls",
+          "dataType": "text",
+          "required": false,
+          "extractionHints": ["management assertion", "management statement"]
+        },
+        {
+          "id": "auditor_responsibility",
+          "name": "Auditor Responsibility",
+          "description": "Description of auditor's responsibilities",
+          "dataType": "text",
+          "required": false,
+          "extractionHints": ["auditor responsibility", "examiner responsibility"]
+        },
+        {
+          "id": "report_limitations",
+          "name": "Report Limitations",
+          "description": "Any limitations or restrictions on the report",
+          "dataType": "text",
+          "required": false,
+          "extractionHints": ["limitation", "restriction", "scope limitation"]
         }
       ]
     }
@@ -103,6 +202,8 @@
     "preserveTableStructure": true,
     "capturePageNumbers": true,
     "confidenceThreshold": 0.7,
-    "maxTokensPerChunk": 4000
+    "maxTokensPerChunk": 4000,
+    "includePageNumbers": true,
+    "includeConfidenceScores": true
   }
 }
