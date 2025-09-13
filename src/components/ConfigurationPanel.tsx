@@ -43,17 +43,17 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 mb-6">
-        <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
-          <Settings className="w-4 h-4 text-primary-foreground" />
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-6 h-6 rounded-lg bg-gradient-primary flex items-center justify-center">
+          <Settings className="w-3 h-3 text-primary-foreground" />
         </div>
-        <h2 className="text-xl font-semibold text-foreground">AI Configuration</h2>
+        <h2 className="text-lg font-medium text-foreground">AI Configuration</h2>
       </div>
 
       <Card className="bg-gradient-card border shadow-card">
-        <div className="p-6 space-y-6">
+        <div className="p-4 space-y-4">
           {/* API Key Section */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <Label htmlFor="api-key" className="text-sm font-medium text-foreground">
               OpenRouter API Key
             </Label>
@@ -91,7 +91,7 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
           </div>
 
           {/* Model Selection */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <Label htmlFor="model-select" className="text-sm font-medium text-foreground">
               AI Model
             </Label>
@@ -118,7 +118,6 @@ export const ConfigurationPanel: React.FC<ConfigurationPanelProps> = ({
               onClick={onTestConnection}
               disabled={!apiKey || !selectedModel || isTesting}
               variant={isConnected ? "success" : "outline"}
-              size="sm"
             >
               {isTesting ? (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />

@@ -85,11 +85,11 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 mb-6">
-        <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
-          <FileText className="w-4 h-4 text-primary-foreground" />
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-6 h-6 rounded-lg bg-gradient-primary flex items-center justify-center">
+          <FileText className="w-3 h-3 text-primary-foreground" />
         </div>
-        <h2 className="text-xl font-semibold text-foreground">SOC1 Report Upload</h2>
+        <h2 className="text-lg font-medium text-foreground">SOC1 Report Upload</h2>
       </div>
 
       {!uploadedFile ? (
@@ -104,15 +104,15 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
-          <div className="p-12 text-center">
-            <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-gradient-subtle flex items-center justify-center">
-              <Upload className="w-8 h-8 text-primary" />
+          <div className="p-8 text-center">
+            <div className="mx-auto mb-3 w-12 h-12 rounded-full bg-gradient-subtle flex items-center justify-center">
+              <Upload className="w-6 h-6 text-primary" />
             </div>
             
-            <h3 className="mb-2 text-lg font-medium text-foreground">
+            <h3 className="mb-2 text-base font-medium text-foreground">
               Drop your SOC1 report here
             </h3>
-            <p className="mb-6 text-sm text-muted-foreground">
+            <p className="mb-4 text-sm text-muted-foreground">
               or click to browse and select a PDF file
             </p>
 
@@ -128,7 +128,6 @@ export const UploadSection: React.FC<UploadSectionProps> = ({
             <Button 
               onClick={() => document.getElementById('file-upload')?.click()}
               variant="outline"
-              size="lg"
               disabled={isProcessing}
               className="mx-auto"
             >

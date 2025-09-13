@@ -149,50 +149,46 @@ const Index = () => {
 
       {/* Hero Section */}
       {!showResults && (
-        <section className="container mx-auto px-6 py-12">
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mb-6 border border-primary/20">
-              <Sparkles className="w-4 h-4" />
-              Powered by Advanced AI Models
-            </div>
-            <h2 className="text-4xl font-bold text-foreground mb-4 bg-gradient-hero bg-clip-text text-transparent">
+        <section className="container mx-auto px-6 py-8">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-foreground mb-3 bg-gradient-hero bg-clip-text text-transparent">
               Transform SOC1 Reports into Structured Insights
             </h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Upload your SOC1 audit reports and extract key information with AI precision. 
               Tables, exceptions, and control details are automatically identified and organized.
             </p>
           </div>
 
           {/* Feature Cards */}
-          <div className="grid md:grid-cols-3 gap-6 mb-12">
+          <div className="grid md:grid-cols-3 gap-4 mb-8">
             <Card className="bg-gradient-card border shadow-card">
-              <div className="p-6 text-center">
-                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                  <FileSearch className="w-6 h-6 text-primary" />
+              <div className="p-4 text-center">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                  <FileSearch className="w-5 h-5 text-primary" />
                 </div>
-                <h3 className="font-semibold text-foreground mb-2">Smart Extraction</h3>
-                <p className="text-sm text-muted-foreground">Automatically detect and extract tables, control objectives, and exceptions</p>
+                <h3 className="font-medium text-foreground mb-1">Smart Extraction</h3>
+                <p className="text-xs text-muted-foreground">Automatically detect and extract tables, control objectives, and exceptions</p>
               </div>
             </Card>
             
             <Card className="bg-gradient-card border shadow-card">
-              <div className="p-6 text-center">
-                <div className="w-12 h-12 rounded-lg bg-success/10 flex items-center justify-center mx-auto mb-4">
-                  <Shield className="w-6 h-6 text-success" />
+              <div className="p-4 text-center">
+                <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center mx-auto mb-3">
+                  <Shield className="w-5 h-5 text-success" />
                 </div>
-                <h3 className="font-semibold text-foreground mb-2">Audit Ready</h3>
-                <p className="text-sm text-muted-foreground">Professional-grade analysis with page references and confidence scores</p>
+                <h3 className="font-medium text-foreground mb-1">Audit Ready</h3>
+                <p className="text-xs text-muted-foreground">Professional-grade analysis with page references and confidence scores</p>
               </div>
             </Card>
             
             <Card className="bg-gradient-card border shadow-card">
-              <div className="p-6 text-center">
-                <div className="w-12 h-12 rounded-lg bg-warning/10 flex items-center justify-center mx-auto mb-4">
-                  <Zap className="w-6 h-6 text-warning" />
+              <div className="p-4 text-center">
+                <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center mx-auto mb-3">
+                  <Zap className="w-5 h-5 text-warning" />
                 </div>
-                <h3 className="font-semibold text-foreground mb-2">Fast Processing</h3>
-                <p className="text-sm text-muted-foreground">Process 100+ page reports in under 2 minutes with OpenRouter AI</p>
+                <h3 className="font-medium text-foreground mb-1">Fast Processing</h3>
+                <p className="text-xs text-muted-foreground">Process 100+ page reports in under 2 minutes with OpenRouter AI</p>
               </div>
             </Card>
           </div>
@@ -201,16 +197,19 @@ const Index = () => {
 
       {/* Main Content */}
       <main className="container mx-auto px-6 pb-12">
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Left Column - Setup */}
-          {!showResults && (
-            <div className="space-y-8">
+        {!showResults ? (
+          <div className="grid lg:grid-cols-3 gap-6">
+            {/* Upload Section */}
+            <div>
               <UploadSection
                 onFileUpload={handleFileUpload}
                 uploadedFile={uploadedFile}
                 isProcessing={isAnalyzing}
               />
-              
+            </div>
+            
+            {/* Configuration Section */}
+            <div>
               <ConfigurationPanel
                 apiKey={apiKey}
                 setApiKey={setApiKey}
@@ -221,11 +220,9 @@ const Index = () => {
                 onTestConnection={handleTestConnection}
               />
             </div>
-          )}
 
-          {/* Right Column - Analysis & Results */}
-          <div className={showResults ? 'lg:col-span-2' : ''}>
-            {!showResults ? (
+            {/* Analysis Section */}
+            <div>
               <AnalysisInterface
                 isReady={isReady}
                 isAnalyzing={isAnalyzing}
@@ -236,27 +233,27 @@ const Index = () => {
                 onStopAnalysis={handleStopAnalysis}
                 currentTask={currentTask}
               />
-            ) : (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <Button
-                    variant="outline"
-                    onClick={() => setShowResults(false)}
-                  >
-                    ← Back to Analysis
-                  </Button>
-                </div>
-                
-                <ResultsDisplay
-                  findings={[]}
-                  categories={[]}
-                  onExport={handleExport}
-                  isLoading={false}
-                />
-              </div>
-            )}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <Button
+                variant="outline"
+                onClick={() => setShowResults(false)}
+              >
+                ← Back to Analysis
+              </Button>
+            </div>
+            
+            <ResultsDisplay
+              findings={[]}
+              categories={[]}
+              onExport={handleExport}
+              isLoading={false}
+            />
+          </div>
+        )}
       </main>
     </div>
   );

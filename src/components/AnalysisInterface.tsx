@@ -29,17 +29,17 @@ export const AnalysisInterface: React.FC<AnalysisInterfaceProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 mb-6">
-        <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
-          <Brain className="w-4 h-4 text-primary-foreground" />
+      <div className="flex items-center gap-2 mb-4">
+        <div className="w-6 h-6 rounded-lg bg-gradient-primary flex items-center justify-center">
+          <Brain className="w-3 h-3 text-primary-foreground" />
         </div>
-        <h2 className="text-xl font-semibold text-foreground">Analysis Control</h2>
+        <h2 className="text-lg font-medium text-foreground">Analysis Control</h2>
       </div>
 
       <Card className="bg-gradient-card border shadow-card">
-        <div className="p-6 space-y-6">
+        <div className="p-4 space-y-4">
           {/* Status Section */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
               <h3 className="font-medium text-foreground">Analysis Status</h3>
               <div className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -72,13 +72,12 @@ export const AnalysisInterface: React.FC<AnalysisInterfaceProps> = ({
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               {!isAnalyzing ? (
-                <Button
-                  onClick={onStartAnalysis}
-                  disabled={!isReady}
-                  variant="hero"
-                  size="lg"
-                  className="flex-1"
-                >
+                  <Button
+                    onClick={onStartAnalysis}
+                    disabled={!isReady}
+                    variant="hero"
+                    className="flex-1"
+                  >
                   <Play className="w-4 h-4 mr-2" />
                   Start Analysis
                 </Button>
@@ -87,7 +86,6 @@ export const AnalysisInterface: React.FC<AnalysisInterfaceProps> = ({
                   <Button
                     onClick={onPauseAnalysis}
                     variant="warning"
-                    size="lg"
                     className="flex-1"
                   >
                     <Pause className="w-4 h-4 mr-2" />
@@ -96,7 +94,6 @@ export const AnalysisInterface: React.FC<AnalysisInterfaceProps> = ({
                   <Button
                     onClick={onStopAnalysis}
                     variant="destructive"
-                    size="lg"
                   >
                     <Square className="w-4 h-4 mr-2" />
                     Stop
