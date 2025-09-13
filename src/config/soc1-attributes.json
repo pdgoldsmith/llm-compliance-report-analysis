@@ -1,0 +1,108 @@
+{
+  "version": "1.0",
+  "reportType": "SOC1",
+  "categories": [
+    {
+      "id": "basic_info",
+      "name": "Basic Report Information",
+      "attributes": [
+        {
+          "id": "service_auditor",
+          "name": "Service Auditor",
+          "description": "Independent auditor who performed the examination",
+          "dataType": "text",
+          "required": true,
+          "extractionHints": ["auditor", "CPA firm", "accounting firm"]
+        },
+        {
+          "id": "report_period",
+          "name": "Report Period", 
+          "description": "Time period covered by the report",
+          "dataType": "dateRange",
+          "required": true,
+          "extractionHints": ["period from", "period ended", "as of"]
+        },
+        {
+          "id": "opinion_type",
+          "name": "Opinion Type",
+          "description": "Type of opinion issued (Unqualified, Qualified, Adverse, Disclaimer)",
+          "dataType": "enum",
+          "enumValues": ["Unqualified", "Qualified", "Adverse", "Disclaimer"],
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "control_environment",
+      "name": "Control Environment",
+      "attributes": [
+        {
+          "id": "control_objectives",
+          "name": "Control Objectives",
+          "description": "List of control objectives tested",
+          "dataType": "array",
+          "required": true,
+          "extractionHints": ["control objective", "CO-"]
+        },
+        {
+          "id": "control_activities",
+          "name": "Control Activities",
+          "description": "Specific control activities implemented",
+          "dataType": "array",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "exceptions",
+      "name": "Exceptions and Deviations",
+      "attributes": [
+        {
+          "id": "control_exceptions",
+          "name": "Control Exceptions",
+          "description": "Identified exceptions to control operations",
+          "dataType": "table",
+          "tableColumns": ["Control", "Exception Description", "Frequency", "Management Response"],
+          "required": true,
+          "critical": true,
+          "extractionHints": ["exception", "deviation", "deficiency", "finding"]
+        },
+        {
+          "id": "test_results",
+          "name": "Test Results",
+          "description": "Results of control testing procedures",
+          "dataType": "table",
+          "tableColumns": ["Control", "Test Procedure", "Sample Size", "Exceptions Found"],
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "subservice_organizations",
+      "name": "Subservice Organizations",
+      "attributes": [
+        {
+          "id": "subservice_list",
+          "name": "Subservice Organizations",
+          "description": "List of subservice organizations used",
+          "dataType": "array",
+          "required": false
+        },
+        {
+          "id": "carve_out_method",
+          "name": "Carve-out vs Inclusive Method",
+          "description": "Method used for subservice organization controls",
+          "dataType": "enum",
+          "enumValues": ["Carve-out", "Inclusive", "Not Applicable"],
+          "required": true
+        }
+      ]
+    }
+  ],
+  "extractionSettings": {
+    "preserveTableStructure": true,
+    "capturePageNumbers": true,
+    "confidenceThreshold": 0.7,
+    "maxTokensPerChunk": 4000
+  }
+}
