@@ -200,10 +200,8 @@ export class OpenRouterAPI {
         'Content-Type': 'application/json',
       };
 
-      // For local endpoints, use a dummy API key or no key
-      if (this.config.useLocalModel) {
-        headers['Authorization'] = `Bearer ${this.config.apiKey || 'dummy-key'}`;
-      } else {
+      // For local endpoints, don't include Authorization header
+      if (!this.config.useLocalModel) {
         headers['Authorization'] = `Bearer ${this.config.apiKey}`;
       }
 
@@ -350,10 +348,8 @@ Only report control failures, exclusions, and carve-outs.`;
         'Content-Type': 'application/json',
       };
 
-      // For local endpoints, use a dummy API key or no key
-      if (this.config.useLocalModel) {
-        headers['Authorization'] = `Bearer ${this.config.apiKey || 'dummy-key'}`;
-      } else {
+      // For local endpoints, don't include Authorization header
+      if (!this.config.useLocalModel) {
         headers['Authorization'] = `Bearer ${this.config.apiKey}`;
         headers['HTTP-Referer'] = window.location.origin;
         headers['X-Title'] = 'SOC1 Compliance Analyzer';
@@ -432,6 +428,44 @@ Only report control failures, exclusions, and carve-outs.`;
         throw new Error('No response from AI model');
       }
 
+      // Safe JSON stringification that handles circular references and large objects
+      const safeStringify = (obj: any, maxDepth: number = 3): string => {
+        const seen = new WeakSet();
+        let depth = 0;
+        
+        const replacer = (key: string, value: any) => {
+          if (depth > maxDepth) {
+            return '[Max Depth Reached]';
+          }
+          
+          if (typeof value === 'object' && value !== null) {
+            if (seen.has(value)) {
+              return '[Circular Reference]';
+            }
+            seen.add(value);
+            depth++;
+          }
+          
+          // Handle large strings
+          if (typeof value === 'string' && value.length > 1000) {
+            return value.substring(0, 1000) + '...[Truncated]';
+          }
+          
+          // Handle large arrays
+          if (Array.isArray(value) && value.length > 100) {
+            return value.slice(0, 100).concat(['[Array Truncated - showing first 100 items]']);
+          }
+          
+          return value;
+        };
+        
+        try {
+          return JSON.stringify(obj, replacer, 2);
+        } catch (error) {
+          return `[Stringify Error: ${error instanceof Error ? error.message : 'Unknown error'}]`;
+        }
+      };
+
       // Normalize content across various OpenAI-compatible servers
       const normalizeContent = (payload: any): string => {
         try {
@@ -456,13 +490,13 @@ Only report control failures, exclusions, and carve-outs.`;
             if (joined.trim()) return joined;
           }
 
-          // If we have a tool call or non-empty message object, stringify it
+          // If we have a tool call or non-empty message object, safely stringify it
           if (message && Object.keys(message).length > 0) {
-            return JSON.stringify(message);
+            return safeStringify(message);
           }
 
-          // Fallback: stringify the full payload (last resort)
-          return JSON.stringify(payload);
+          // Fallback: safely stringify the full payload (last resort)
+          return safeStringify(payload);
         } catch (_e) {
           return '';
         }
@@ -548,8 +582,7 @@ Only report control failures, exclusions, and carve-outs.`;
             // Try to fix common JSON issues
             cleanedContent = cleanedContent
               .replace(/([{,]\s*)(\w+):/g, '$1"$2":') // Add quotes around unquoted keys
-              .replace(/:\s*([^",{\[\s][^,}\]\]]*?)([,}\]])/g, ': "$1"$2') // Add quotes around unquoted string values
-              .replace(/:\s*"([^"]*)"\s*([,}\]])/g, ': "$1"$2'); // Ensure proper string formatting
+              .replace(/:\s*([^",{\[\s][^,}\]]*?)([,}\]])/g, ': "$1"$2'); // Add quotes around unquoted string values (fixed regex)
             
             if (cleanedContent.startsWith('{') && cleanedContent.endsWith('}')) {
               result = JSON.parse(cleanedContent);
