@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -14,10 +14,15 @@ import { ExcelExporter, SOC1ExcelData } from '@/lib/excelExporter';
 const Index = () => {
   const { toast } = useToast();
   
+  // Local model configuration (declared first since it's used in selectedModel initialization)
+  const [useLocalModel, setUseLocalModel] = useState(true);
+  const [localEndpointUrl, setLocalEndpointUrl] = useState('http://localhost:11434/v1');
+  const [localModelName, setLocalModelName] = useState('llama3.1:8b');
+  
   // State management
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [apiKey, setApiKey] = useState('');
-  const [selectedModel, setSelectedModel] = useState(getDefaultModel(true));
+  const [selectedModel, setSelectedModel] = useState(getDefaultModel(useLocalModel));
   const [isConnected, setIsConnected] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -27,11 +32,11 @@ const Index = () => {
   const [analysisResults, setAnalysisResults] = useState<any[]>([]);
   const [pdfInfo, setPdfInfo] = useState<PDFInfo | null>(null);
   const [openRouterAPI, setOpenRouterAPI] = useState<OpenRouterAPI | null>(null);
-  
-  // Local model configuration
-  const [useLocalModel, setUseLocalModel] = useState(true);
-  const [localEndpointUrl, setLocalEndpointUrl] = useState('http://localhost:11434/v1');
-  const [localModelName, setLocalModelName] = useState('llama3.1:8b');
+
+  // Update selected model when useLocalModel changes
+  useEffect(() => {
+    setSelectedModel(getDefaultModel(useLocalModel));
+  }, [useLocalModel]);
 
   const handleFileUpload = async (file: File) => {
     try {
@@ -244,7 +249,7 @@ const Index = () => {
   };
 
 
-  const isReady = uploadedFile && isConnected && (useLocalModel || apiKey);
+  const isReady = uploadedFile && isConnected && (useLocalModel || !!apiKey);
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
