@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { UploadSection } from '@/components/UploadSection';
 import { ConfigurationPanel } from '@/components/ConfigurationPanel';
 import { AnalysisInterface } from '@/components/AnalysisInterface';
-import { FileSearch, Sparkles, Shield, Zap } from 'lucide-react';
+import { FileSearch, Sparkles, Zap, CheckCircle } from 'lucide-react';
 import { PDFProcessor, PDFInfo } from '@/lib/pdfProcessor';
 import { OpenRouterAPI, APIConfig } from '@/lib/openRouterAPI';
 import { getAPIConfig, getDefaultModel } from '@/lib/config';
@@ -268,11 +268,11 @@ const Index = () => {
             </div>
             
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
-                <Shield className="w-4 h-4 mr-2" />
-                Security
-              </Button>
-              <Button variant="ghost" size="sm">
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => window.open('https://github.com/pdgoldsmith/llm-compliance-report-analysis/blob/main/README.md', '_blank')}
+              >
                 Documentation
               </Button>
             </div>
@@ -307,7 +307,7 @@ const Index = () => {
             <Card className="bg-gradient-card border shadow-card">
               <div className="p-4 text-center">
                 <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center mx-auto mb-3">
-                  <Shield className="w-5 h-5 text-success" />
+                  <CheckCircle className="w-5 h-5 text-success" />
                 </div>
                 <h3 className="font-medium text-foreground mb-1">Audit Ready</h3>
                 <p className="text-xs text-muted-foreground">Professional-grade analysis with page references and confidence scores</p>
@@ -320,7 +320,7 @@ const Index = () => {
                   <Zap className="w-5 h-5 text-warning" />
                 </div>
                 <h3 className="font-medium text-foreground mb-1">Fast Processing</h3>
-                <p className="text-xs text-muted-foreground">Process 100+ page reports in under 2 minutes with OpenRouter AI</p>
+                <p className="text-xs text-muted-foreground">Process 100+ page reports in under 2 minutes with OpenRouter AI or a privately hosted LLM</p>
               </div>
             </Card>
           </div>
