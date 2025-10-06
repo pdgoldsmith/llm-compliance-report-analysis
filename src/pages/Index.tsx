@@ -7,7 +7,8 @@ import { ConfigurationPanel } from '@/components/ConfigurationPanel';
 import { AnalysisInterface } from '@/components/AnalysisInterface';
 import { FileSearch, Sparkles, Shield, Zap } from 'lucide-react';
 import { PDFProcessor, PDFInfo } from '@/lib/pdfProcessor';
-import { OpenRouterAPI } from '@/lib/openRouterAPI';
+import { OpenRouterAPI, APIConfig } from '@/lib/openRouterAPI';
+import { getAPIConfig, getDefaultModel } from '@/lib/config';
 import { ExcelExporter, SOC1ExcelData } from '@/lib/excelExporter';
 
 const Index = () => {
@@ -16,7 +17,7 @@ const Index = () => {
   // State management
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [apiKey, setApiKey] = useState('');
-  const [selectedModel, setSelectedModel] = useState('meta-llama/llama-3.3-70b-instruct:free');
+  const [selectedModel, setSelectedModel] = useState(getDefaultModel(true));
   const [isConnected, setIsConnected] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -26,6 +27,11 @@ const Index = () => {
   const [analysisResults, setAnalysisResults] = useState<any[]>([]);
   const [pdfInfo, setPdfInfo] = useState<PDFInfo | null>(null);
   const [openRouterAPI, setOpenRouterAPI] = useState<OpenRouterAPI | null>(null);
+  
+  // Local model configuration
+  const [useLocalModel, setUseLocalModel] = useState(true);
+  const [localEndpointUrl, setLocalEndpointUrl] = useState('http://localhost:11434/v1');
+  const [localModelName, setLocalModelName] = useState('llama3.1:8b');
 
   const handleFileUpload = async (file: File) => {
     try {
@@ -74,7 +80,7 @@ const Index = () => {
   };
 
   const handleTestConnection = async () => {
-    if (!apiKey.trim()) {
+    if (!useLocalModel && !apiKey.trim()) {
       toast({
         title: "API Key Required",
         description: "Please enter your OpenRouter API key first.",
@@ -86,7 +92,14 @@ const Index = () => {
     setIsTesting(true);
     
     try {
-      const api = new OpenRouterAPI(apiKey);
+      const config: APIConfig = {
+        useLocalModel,
+        apiKey,
+        localEndpointUrl,
+        localModelName
+      };
+      
+      const api = new OpenRouterAPI(config);
       const isConnected = await api.testConnection();
       
       if (isConnected) {
@@ -94,7 +107,7 @@ const Index = () => {
         setOpenRouterAPI(api);
         toast({
           title: "Connection successful",
-          description: "OpenRouter API connection has been verified.",
+          description: `${useLocalModel ? 'Local endpoint' : 'OpenRouter API'} connection has been verified.`,
         });
       } else {
         throw new Error('Connection test failed');
@@ -105,7 +118,7 @@ const Index = () => {
       setOpenRouterAPI(null);
       toast({
         title: "Connection failed",
-        description: error instanceof Error ? error.message : 'Failed to connect to OpenRouter API',
+        description: error instanceof Error ? error.message : `Failed to connect to ${useLocalModel ? 'local endpoint' : 'OpenRouter API'}`,
         variant: "destructive",
       });
     } finally {
@@ -231,7 +244,7 @@ const Index = () => {
   };
 
 
-  const isReady = uploadedFile && apiKey && isConnected;
+  const isReady = uploadedFile && isConnected && (useLocalModel || apiKey);
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -330,6 +343,12 @@ const Index = () => {
               isConnected={isConnected}
               isTesting={isTesting}
               onTestConnection={handleTestConnection}
+              useLocalModel={useLocalModel}
+              setUseLocalModel={setUseLocalModel}
+              localEndpointUrl={localEndpointUrl}
+              setLocalEndpointUrl={setLocalEndpointUrl}
+              localModelName={localModelName}
+              setLocalModelName={setLocalModelName}
             />
           </div>
 
