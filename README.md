@@ -1,11 +1,13 @@
 # SOC1 Compliance Report Analysis Tool
 
-A powerful AI-powered tool for analyzing SOC1 compliance reports using OpenRouter's latest language models.
+A powerful AI-powered tool for analyzing SOC1 compliance reports using both OpenRouter's cloud models and local OpenAI-compatible endpoints.
 
 ## Features
 
 - **Real PDF Processing**: Accurate page counting and text extraction using PDF.js
+- **Dual Model Support**: Use OpenRouter cloud models or local endpoints (Ollama, llama.cpp, etc.)
 - **Latest AI Models**: Access to current OpenRouter models including free options
+- **Local Model Support**: Run analysis on your own hardware with OpenAI-compatible APIs
 - **Comprehensive Analysis**: Extracts executive summary, controls, findings, and compliance status
 - **Progress Tracking**: Real-time progress updates during analysis
 - **Automatic Excel Export**: Generates comprehensive Excel reports with multiple sheets
@@ -19,8 +21,112 @@ A powerful AI-powered tool for analyzing SOC1 compliance reports using OpenRoute
 4. **PDF Processing**: Implemented real PDF text extraction and processing
 
 ### Available Models:
+
+#### OpenRouter Cloud Models:
 - **Free Models**: Llama 3.3 70B, Gemini 2.0 Flash, Phi-3.5 Mini
 - **Premium Models**: GPT-4o, Claude 3.5 Sonnet, Gemini 2.0 Flash
+
+#### Local Models (OpenAI-compatible):
+- **Llama Models**: Llama 3.1 8B/70B, Code Llama 7B/13B
+- **Mistral Models**: Mistral 7B, Mixtral 8x7B
+- **Other Models**: Qwen 2.5 7B, Gemma 2 9B
+- **Custom Models**: Any model supported by your local endpoint
+
+## Configuration
+
+### Environment Variables
+
+You can configure the application using environment variables. Copy `env.example` to `.env` and modify as needed:
+
+```bash
+# Use local models instead of OpenRouter
+VITE_USE_LOCAL_MODEL=true
+
+# OpenRouter API Key (required for cloud models)
+VITE_API_KEY=your_openrouter_api_key_here
+
+# Local endpoint configuration
+VITE_LOCAL_ENDPOINT_URL=http://localhost:11434/v1
+VITE_LOCAL_MODEL_NAME=llama3.1:8b
+```
+
+### Local Endpoint Setup
+
+The application supports any OpenAI-compatible API endpoint. Here are some popular options:
+
+#### Ollama
+```bash
+# Install Ollama
+curl -fsSL https://ollama.ai/install.sh | sh
+
+# Pull a model
+ollama pull llama3.1:8b
+
+# Start the API server
+ollama serve
+```
+
+#### llama.cpp server
+```bash
+# Build llama.cpp with server support
+make server
+
+# Start the server
+./server -m your_model.gguf --port 8080
+```
+
+#### LM Studio
+1. Download and install LM Studio
+2. Load your preferred model
+3. Start the local server (usually on port 1234)
+
+### UI Configuration
+
+You can also configure everything through the web interface:
+1. Toggle between "OpenRouter" and "Local" using the provider switch
+2. **For OpenRouter**: Enter your API key and select your preferred model from the dropdown
+3. **For Local**: Enter your endpoint URL and specify the exact model name as recognized by your local endpoint
+4. Test the connection before starting analysis
+
+The interface automatically adapts based on your provider choice - when using local models, the model selection dropdown is hidden since you specify the exact model name directly.
+
+### Backend Proxy (CORS Resolution)
+
+The application includes a backend proxy server to resolve CORS issues when using local models:
+
+- **OpenRouter calls**: Go directly from frontend to OpenRouter (no proxy needed)
+- **Local model calls**: Go from frontend → Vite proxy → Backend server → Local LLM server
+- **CORS resolved**: Backend server handles CORS and forwards requests to local LLM
+
+#### Running the Application
+
+```bash
+# Option 1: Run both frontend and backend together
+npm run dev:full
+
+# Option 2: Run them separately
+# Terminal 1 (Backend):
+cd server && npm run dev
+
+# Terminal 2 (Frontend):
+npm run dev
+```
+
+The backend server runs on port 3001 and provides these endpoints:
+- `GET /health` - Health check
+- `GET /api/local/v1/models` - Proxy to local LLM models endpoint
+- `POST /api/local/v1/chat/completions` - Proxy to local LLM chat completions
+
+### Automated Setup
+
+The project includes an automated setup system that eliminates manual configuration steps:
+
+- **Auto-creates `.env` files** with sensible defaults
+- **Installs all dependencies** (frontend and backend)
+- **Configures environment** automatically
+- **No manual steps required** for basic setup
+
+Simply run `npm run setup` after cloning the repository, and everything will be configured automatically!
 
 ## Project info
 
@@ -51,11 +157,28 @@ git clone <YOUR_GIT_URL>
 # Step 2: Navigate to the project directory.
 cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
-npm i
+# Step 3: Run the automated setup (installs dependencies and configures environment).
+npm run setup
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+# Step 4: Start the application.
+npm run dev:full    # Run both frontend and backend
+# OR
+npm run dev         # Run frontend only (if backend not needed)
+```
+
+### Alternative Manual Setup
+
+If you prefer manual setup:
+
+```sh
+# Install dependencies
+npm install
+
+# Setup backend
+cd server && npm install
+
+# Start the application
+npm run dev:full
 ```
 
 **Edit a file directly in GitHub**

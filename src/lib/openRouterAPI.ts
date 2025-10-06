@@ -10,6 +10,21 @@ export interface OpenRouterModel {
   isFree?: boolean;
 }
 
+export interface LocalModel {
+  id: string;
+  name: string;
+  provider: string;
+  context_length?: number;
+  isLocal?: boolean;
+}
+
+export interface APIConfig {
+  useLocalModel: boolean;
+  apiKey: string;
+  localEndpointUrl?: string;
+  localModelName?: string;
+}
+
 export interface OpenRouterResponse {
   choices: Array<{
     message: {
@@ -24,6 +39,66 @@ export interface OpenRouterResponse {
     total_tokens: number;
   };
 }
+
+// Common local models for OpenAI-compatible endpoints
+export const LOCAL_MODELS: LocalModel[] = [
+  {
+    id: 'llama3.1:8b',
+    name: 'Llama 3.1 8B',
+    provider: 'Meta (Local)',
+    context_length: 128000,
+    isLocal: true
+  },
+  {
+    id: 'llama3.1:70b',
+    name: 'Llama 3.1 70B',
+    provider: 'Meta (Local)',
+    context_length: 128000,
+    isLocal: true
+  },
+  {
+    id: 'codellama:7b',
+    name: 'Code Llama 7B',
+    provider: 'Meta (Local)',
+    context_length: 16000,
+    isLocal: true
+  },
+  {
+    id: 'codellama:13b',
+    name: 'Code Llama 13B',
+    provider: 'Meta (Local)',
+    context_length: 16000,
+    isLocal: true
+  },
+  {
+    id: 'mistral:7b',
+    name: 'Mistral 7B',
+    provider: 'Mistral AI (Local)',
+    context_length: 32000,
+    isLocal: true
+  },
+  {
+    id: 'mixtral:8x7b',
+    name: 'Mixtral 8x7B',
+    provider: 'Mistral AI (Local)',
+    context_length: 32000,
+    isLocal: true
+  },
+  {
+    id: 'qwen2.5:7b',
+    name: 'Qwen 2.5 7B',
+    provider: 'Alibaba (Local)',
+    context_length: 32000,
+    isLocal: true
+  },
+  {
+    id: 'gemma2:9b',
+    name: 'Gemma 2 9B',
+    provider: 'Google (Local)',
+    context_length: 8192,
+    isLocal: true
+  }
+];
 
 // Top 10 models by usage (as of 2024-2025) + best free model
 export const AVAILABLE_MODELS: OpenRouterModel[] = [
@@ -100,20 +175,43 @@ export const AVAILABLE_MODELS: OpenRouterModel[] = [
 ];
 
 export class OpenRouterAPI {
-  private apiKey: string;
-  private baseURL = 'https://openrouter.ai/api/v1';
+  private config: APIConfig;
+  private baseURL: string;
 
-  constructor(apiKey: string) {
-    this.apiKey = apiKey;
+  constructor(config: APIConfig) {
+    this.config = config;
+    
+    // Use backend proxy for local models, direct connection for OpenRouter
+    if (config.useLocalModel) {
+      this.baseURL = '/api/local'; // Frontend will proxy to backend
+    } else {
+      this.baseURL = 'https://openrouter.ai/api/v1';
+    }
+  }
+
+  // Get available models based on configuration
+  static getAvailableModels(useLocalModel: boolean): (OpenRouterModel | LocalModel)[] {
+    return useLocalModel ? LOCAL_MODELS : AVAILABLE_MODELS;
   }
 
   async testConnection(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.baseURL}/models`, {
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-        },
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      // For local endpoints, use a dummy API key or no key
+      if (this.config.useLocalModel) {
+        headers['Authorization'] = `Bearer ${this.config.apiKey || 'dummy-key'}`;
+      } else {
+        headers['Authorization'] = `Bearer ${this.config.apiKey}`;
+      }
+
+      // Use the correct endpoint based on provider
+      const endpoint = this.config.useLocalModel ? '/v1/models' : '/models';
+      
+      const response = await fetch(`${this.baseURL}${endpoint}`, {
+        headers,
       });
 
       if (!response.ok) {
@@ -122,7 +220,7 @@ export class OpenRouterAPI {
 
       return true;
     } catch (error) {
-      console.error('OpenRouter API connection test failed:', error);
+      console.error(`${this.config.useLocalModel ? 'Local' : 'OpenRouter'} API connection test failed:`, error);
       return false;
     }
   }
@@ -161,7 +259,52 @@ export class OpenRouterAPI {
       onProgress?.(10, 'Preparing analysis request...');
 
       // Optimized SOC1 analysis prompt - working version with token savings
-      const systemPrompt = `Extract SOC1 compliance issues. Return JSON only.
+      const systemPrompt = this.config.useLocalModel 
+        ? `You are a SOC1 compliance analyst. Analyze the SOC1 report and extract the following information. Return your response in this EXACT JSON format with no additional text:
+
+{
+  "executiveSummary": {
+    "reportPeriod": "extract the report period from the document",
+    "serviceOrganization": "extract the service organization name", 
+    "auditor": "extract the auditor firm name",
+    "opinion": "extract the opinion type (unqualified, qualified, adverse, disclaimer)"
+  },
+  "controlFailures": [
+    {
+      "id": "CO-1",
+      "description": "describe the control failure",
+      "type": "preventive or detective or corrective",
+      "effectiveness": "ineffective or not_tested",
+      "exceptions": ["list any exceptions found"],
+      "pageNumbers": [1]
+    }
+  ],
+  "exclusions": [
+    {
+      "id": "EX-1", 
+      "description": "describe what is excluded",
+      "reason": "reason for exclusion",
+      "pageNumbers": [1]
+    }
+  ],
+  "carveOuts": [
+    {
+      "id": "CO-1",
+      "description": "describe the sub-service provider carved out", 
+      "provider": "provider name",
+      "reason": "reason for carve-out",
+      "pageNumbers": [1]
+    }
+  ]
+}
+
+IMPORTANT: 
+- Start your response with { and end with }
+- Use proper JSON syntax with quotes around all keys and string values
+- If no control failures, exclusions, or carve-outs are found, use empty arrays []
+- Extract actual information from the document, don't use placeholder text
+- Return ONLY the JSON, no other text`
+        : `Extract SOC1 compliance issues. Return JSON only.
 
 {
   "executiveSummary": {
@@ -203,16 +346,32 @@ Only report control failures, exclusions, and carve-outs.`;
 
       onProgress?.(30, 'Sending request to AI model...');
 
-      const response = await fetch(`${this.baseURL}/chat/completions`, {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      // For local endpoints, use a dummy API key or no key
+      if (this.config.useLocalModel) {
+        headers['Authorization'] = `Bearer ${this.config.apiKey || 'dummy-key'}`;
+      } else {
+        headers['Authorization'] = `Bearer ${this.config.apiKey}`;
+        headers['HTTP-Referer'] = window.location.origin;
+        headers['X-Title'] = 'SOC1 Compliance Analyzer';
+      }
+
+      // Use the correct model ID based on configuration
+      const actualModelId = this.config.useLocalModel 
+        ? (this.config.localModelName || modelId)
+        : modelId;
+
+      // Use the correct endpoint based on provider
+      const endpoint = this.config.useLocalModel ? '/v1/chat/completions' : '/chat/completions';
+
+      const response = await fetch(`${this.baseURL}${endpoint}`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': window.location.origin,
-          'X-Title': 'SOC1 Compliance Analyzer',
-        },
+        headers,
         body: JSON.stringify({
-          model: modelId,
+          model: actualModelId,
           messages: [
             {
               role: 'system',
@@ -225,6 +384,11 @@ Only report control failures, exclusions, and carve-outs.`;
           ],
           temperature: 0.1,
           max_tokens: 4000,
+          // Ensure non-streaming responses from local OpenAI-compatible servers
+          // Some local servers default to streaming which leaves message.content empty
+          stream: false,
+          // Hint JSON mode where supported (ignored by servers that don't support it)
+          response_format: { type: 'json_object' }
         }),
       });
 
@@ -260,7 +424,7 @@ Only report control failures, exclusions, and carve-outs.`;
         throw new Error(`API request failed: ${response.status} - ${errorData.error?.message || response.statusText}`);
       }
 
-      const data: OpenRouterResponse = await response.json();
+      const data: any = await response.json();
       
       onProgress?.(90, 'Parsing results...');
 
@@ -268,11 +432,52 @@ Only report control failures, exclusions, and carve-outs.`;
         throw new Error('No response from AI model');
       }
 
-      const content = data.choices[0].message.content;
+      // Normalize content across various OpenAI-compatible servers
+      const normalizeContent = (payload: any): string => {
+        try {
+          const choice = payload?.choices?.[0] ?? {};
+          const message = choice.message ?? {};
+
+          // Common: string content
+          if (typeof message.content === 'string' && message.content.trim()) {
+            return message.content;
+          }
+
+          // Some providers: choice.content exists directly
+          if (typeof choice.content === 'string' && choice.content.trim()) {
+            return choice.content;
+          }
+
+          // Some servers: content as array of parts
+          if (Array.isArray(message.content)) {
+            const joined = message.content
+              .map((part: any) => (typeof part === 'string' ? part : part?.text ?? ''))
+              .join('');
+            if (joined.trim()) return joined;
+          }
+
+          // If we have a tool call or non-empty message object, stringify it
+          if (message && Object.keys(message).length > 0) {
+            return JSON.stringify(message);
+          }
+
+          // Fallback: stringify the full payload (last resort)
+          return JSON.stringify(payload);
+        } catch (_e) {
+          return '';
+        }
+      };
+
+      const content = normalizeContent(data);
       
       // Try to parse JSON from the response with multiple fallback strategies
       try {
         console.log('Raw AI response:', content); // Debug log
+        console.log('Response length:', typeof content === 'string' ? content.length : 0);
+        if (typeof content === 'string') {
+          console.log('First 200 chars:', content.substring(0, 200));
+          console.log('Last 200 chars:', content.substring(Math.max(0, content.length - 200)));
+        }
         
         let result: any = null;
         
@@ -314,7 +519,7 @@ Only report control failures, exclusions, and carve-outs.`;
         if (!result) {
           try {
             // Remove common prefixes/suffixes that might interfere
-            let cleanedContent = content
+            const cleanedContent = content
               .replace(/^[^{]*/, '') // Remove everything before first {
               .replace(/[^}]*$/, '') // Remove everything after last }
               .trim();
@@ -325,6 +530,33 @@ Only report control failures, exclusions, and carve-outs.`;
             }
           } catch (e) {
             console.warn('Strategy 4 failed');
+          }
+        }
+
+        // Strategy 5: Enhanced parsing for local models (more aggressive cleaning)
+        if (!result && this.config.useLocalModel) {
+          try {
+            // More aggressive cleaning for local models
+            let cleanedContent = content
+              .replace(/^[^{]*/, '') // Remove everything before first {
+              .replace(/[^}]*$/, '') // Remove everything after last }
+              .replace(/\n\s*\n/g, '\n') // Remove extra newlines
+              .replace(/,\s*}/g, '}') // Remove trailing commas
+              .replace(/,\s*]/g, ']') // Remove trailing commas in arrays
+              .trim();
+            
+            // Try to fix common JSON issues
+            cleanedContent = cleanedContent
+              .replace(/([{,]\s*)(\w+):/g, '$1"$2":') // Add quotes around unquoted keys
+              .replace(/:\s*([^",{\[\s][^,}\]\]]*?)([,}\]])/g, ': "$1"$2') // Add quotes around unquoted string values
+              .replace(/:\s*"([^"]*)"\s*([,}\]])/g, ': "$1"$2'); // Ensure proper string formatting
+            
+            if (cleanedContent.startsWith('{') && cleanedContent.endsWith('}')) {
+              result = JSON.parse(cleanedContent);
+              console.log('Parsed AI result (Strategy 5 - Local Model Enhanced):', result);
+            }
+          } catch (e) {
+            console.warn('Strategy 5 failed:', e.message);
           }
         }
         
@@ -338,16 +570,27 @@ Only report control failures, exclusions, and carve-outs.`;
         } else {
           console.error('All JSON parsing strategies failed. Full content:', content);
           
-          // Fallback: Create a basic result structure from the raw content
-          console.log('Creating fallback result structure...');
-          result = this.createFallbackResult(content);
+          // Fallback: Try to extract information from natural language response
+          console.log('Attempting to extract information from natural language response...');
+          result = this.extractFromNaturalLanguage(content);
           
-          // Transform the fallback result too
-          const transformedResult = this.transformSOC1Result(result);
-          console.log('Transformed fallback result:', transformedResult);
-          
-          onProgress?.(100, 'Analysis complete with fallback!');
-          return transformedResult;
+          if (result) {
+            console.log('Successfully extracted information from natural language:', result);
+            const transformedResult = this.transformSOC1Result(result);
+            onProgress?.(100, 'Analysis complete with natural language extraction!');
+            return transformedResult;
+          } else {
+            // Final fallback: Create a basic result structure from the raw content
+            console.log('Creating fallback result structure...');
+            result = this.createFallbackResult(content);
+            
+            // Transform the fallback result too
+            const transformedResult = this.transformSOC1Result(result);
+            console.log('Transformed fallback result:', transformedResult);
+            
+            onProgress?.(100, 'Analysis complete with fallback!');
+            return transformedResult;
+          }
         }
       } catch (parseError) {
         console.error('Failed to parse AI response as JSON:', parseError);
@@ -637,8 +880,162 @@ Only report control failures, exclusions, and carve-outs.`;
     };
   }
 
+  private extractFromNaturalLanguage(content: string): any | null {
+    try {
+      console.log('Extracting information from natural language response...');
+      
+      // Initialize result structure
+      const result: any = {
+        executiveSummary: {
+          reportPeriod: 'Not specified',
+          serviceOrganization: 'Not specified',
+          auditor: 'Not specified',
+          opinion: 'Not specified'
+        },
+        controlFailures: [],
+        exclusions: [],
+        carveOuts: []
+      };
+
+      // Extract Service Organization (multiple patterns)
+      const serviceOrgPatterns = [
+        /service organization[:\s]*([^.\n]+)/i,
+        /organization[:\s]*([^.\n]+)/i,
+        /company[:\s]*([^.\n]+)/i,
+        /entity[:\s]*([^.\n]+)/i
+      ];
+      
+      for (const pattern of serviceOrgPatterns) {
+        const match = content.match(pattern);
+        if (match && match[1].trim().length > 2) {
+          result.executiveSummary.serviceOrganization = match[1].trim();
+          break;
+        }
+      }
+
+      // Extract Auditor (multiple patterns)
+      const auditorPatterns = [
+        /auditor[:\s]*([^.\n]+)/i,
+        /audit firm[:\s]*([^.\n]+)/i,
+        /cpa firm[:\s]*([^.\n]+)/i,
+        /examiner[:\s]*([^.\n]+)/i
+      ];
+      
+      for (const pattern of auditorPatterns) {
+        const match = content.match(pattern);
+        if (match && match[1].trim().length > 2) {
+          result.executiveSummary.auditor = match[1].trim();
+          break;
+        }
+      }
+
+      // Extract Report Period (multiple patterns)
+      const periodPatterns = [
+        /report period[:\s]*([^.\n]+)/i,
+        /period[:\s]*([^.\n]+)/i,
+        /as of[:\s]*([^.\n]+)/i,
+        /through[:\s]*([^.\n]+)/i
+      ];
+      
+      for (const pattern of periodPatterns) {
+        const match = content.match(pattern);
+        if (match && match[1].trim().length > 2) {
+          result.executiveSummary.reportPeriod = match[1].trim();
+          break;
+        }
+      }
+
+      // Extract Opinion (multiple patterns)
+      const opinionPatterns = [
+        /opinion[:\s]*([^.\n]+)/i,
+        /unqualified/i,
+        /qualified/i,
+        /adverse/i,
+        /disclaimer/i
+      ];
+      
+      for (const pattern of opinionPatterns) {
+        const match = content.match(pattern);
+        if (match) {
+          if (match[1]) {
+            result.executiveSummary.opinion = match[1].trim();
+          } else {
+            result.executiveSummary.opinion = match[0].trim();
+          }
+          break;
+        }
+      }
+
+      // Extract Control Failures
+      const controlFailureMatches = content.match(/control failure[^.]*?([^.\n]+)/gi);
+      if (controlFailureMatches) {
+        controlFailureMatches.forEach((match, index) => {
+          result.controlFailures.push({
+            id: `extracted-control-failure-${index + 1}`,
+            description: match.trim(),
+            type: 'unknown',
+            effectiveness: 'not_tested',
+            exceptions: ['Extracted from natural language'],
+            pageNumbers: [1],
+            confidenceScore: 0.7
+          });
+        });
+      }
+
+      // Extract Exclusions
+      const exclusionMatches = content.match(/exclusion[^.]*?([^.\n]+)/gi);
+      if (exclusionMatches) {
+        exclusionMatches.forEach((match, index) => {
+          result.exclusions.push({
+            id: `extracted-exclusion-${index + 1}`,
+            description: match.trim(),
+            reason: 'Extracted from natural language response',
+            pageNumbers: [1],
+            confidenceScore: 0.7
+          });
+        });
+      }
+
+      // Extract Carve-outs
+      const carveOutMatches = content.match(/carve.out[^.]*?([^.\n]+)/gi);
+      if (carveOutMatches) {
+        carveOutMatches.forEach((match, index) => {
+          result.carveOuts.push({
+            id: `extracted-carveout-${index + 1}`,
+            description: match.trim(),
+            provider: 'Unknown',
+            reason: 'Extracted from natural language response',
+            pageNumbers: [1],
+            confidenceScore: 0.7
+          });
+        });
+      }
+
+      // Check if we extracted any meaningful information
+      const hasContent = result.executiveSummary.serviceOrganization !== 'Not specified' ||
+                        result.executiveSummary.auditor !== 'Not specified' ||
+                        result.controlFailures.length > 0 ||
+                        result.exclusions.length > 0 ||
+                        result.carveOuts.length > 0;
+
+      if (hasContent) {
+        console.log('Successfully extracted information from natural language');
+        return result;
+      } else {
+        console.log('No meaningful information could be extracted from natural language');
+        return null;
+      }
+
+    } catch (error) {
+      console.error('Error extracting from natural language:', error);
+      return null;
+    }
+  }
+
   private createFallbackResult(content: string): any {
     // Create a basic result structure when JSON parsing fails
+    const truncatedContent = content.length > 1000 ? content.substring(0, 1000) + '...' : content;
+    
     return {
       executiveSummary: {
         reportPeriod: 'Unable to extract - see raw content',
@@ -649,10 +1046,10 @@ Only report control failures, exclusions, and carve-outs.`;
       controlFailures: [
         {
           id: 'fallback-control-failure-1',
-          description: 'Raw AI response could not be parsed as JSON. Please review the console logs for the actual response.',
+          description: `Raw AI response could not be parsed as JSON. Response length: ${content.length} characters. Check console for full response.`,
           type: 'unknown',
           effectiveness: 'not_tested',
-          exceptions: ['Parsing error occurred'],
+          exceptions: ['JSON parsing failed'],
           pageNumbers: [1],
           confidenceScore: 0.1
         }
@@ -660,8 +1057,8 @@ Only report control failures, exclusions, and carve-outs.`;
       exclusions: [
         {
           id: 'fallback-exclusion-1',
-          description: 'AI response parsing failed. Raw content: ' + content.substring(0, 500) + '...',
-          reason: 'Please check the console logs for the full AI response and try again.',
+          description: `AI response parsing failed. Raw content preview: ${truncatedContent}`,
+          reason: 'The local model may not be following the expected JSON format. Check console logs for the full response.',
           pageNumbers: [1],
           confidenceScore: 0.1
         }
@@ -669,9 +1066,9 @@ Only report control failures, exclusions, and carve-outs.`;
       carveOuts: [
         {
           id: 'fallback-carveout-1',
-          description: 'Unable to extract carve-outs due to parsing error',
+          description: 'Unable to extract carve-outs due to JSON parsing error',
           provider: 'Unknown',
-          reason: 'Please review console logs for the actual response.',
+          reason: 'Local model response format issue. Check console for actual response.',
           pageNumbers: [1],
           confidenceScore: 0.1
         }

@@ -1,0 +1,30 @@
+{
+  "name": "soc1-analysis-backend",
+  "version": "1.0.0",
+  "description": "Backend server for SOC1 Analysis Tool - handles CORS proxy for local LLM endpoints",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node index.js",
+    "start": "node index.js",
+    "setup": "node setup.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "axios": "^1.7.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
+  "keywords": [
+    "soc1",
+    "analysis",
+    "llm",
+    "proxy",
+    "cors"
+  ],
+  "author": "SOC1 Analysis Tool",
+  "license": "Apache-2.0"
+}
