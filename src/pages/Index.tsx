@@ -165,11 +165,20 @@ const Index = () => {
       console.log('Starting AI analysis with model:', selectedModel);
       console.log('PDF text length for analysis:', pdfData.text.length);
       
-      // Combine text and structured table data for AI analysis
-      const enhancedText = pdfData.text + PDFProcessor.getTablesAsStructuredData(pdfData.tables);
+      // For now, let's use the original text to ensure it works
+      // TODO: Re-enable table enhancement once we verify it doesn't break the analysis
+      const tableData = PDFProcessor.getTablesAsStructuredData(pdfData.tables);
+      const useEnhancedText = false; // Temporarily disabled
+      const analysisText = useEnhancedText && pdfData.tables.length > 0 ? pdfData.text + tableData : pdfData.text;
+      
+      // Debug: Log the text details
+      console.log('Analysis text length:', analysisText.length);
+      console.log('Table data length:', tableData.length);
+      console.log('Tables detected:', pdfData.tables.length);
+      console.log('Using enhanced text:', useEnhancedText && pdfData.tables.length > 0);
       
       const results = await openRouterAPI.analyzeSOC1Report(
-        enhancedText,
+        analysisText,
         selectedModel,
         (progress, message) => {
           setCurrentTask(message);

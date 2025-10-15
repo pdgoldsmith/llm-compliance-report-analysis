@@ -47,9 +47,9 @@ export interface PDFInfo {
 }
 
 export class PDFProcessor {
-  private static readonly TABLE_DETECTION_THRESHOLD = 0.8;
-  private static readonly MIN_TABLE_ROWS = 2;
-  private static readonly MIN_TABLE_COLS = 2;
+  private static readonly TABLE_DETECTION_THRESHOLD = 0.9; // Increased threshold for more conservative detection
+  private static readonly MIN_TABLE_ROWS = 3; // Increased minimum rows
+  private static readonly MIN_TABLE_COLS = 3; // Increased minimum columns
   private static readonly CELL_OVERLAP_THRESHOLD = 0.1;
 
   static async processPDF(file: File): Promise<PDFInfo> {
@@ -360,10 +360,19 @@ export class PDFProcessor {
    */
   static getTablesAsStructuredData(tables: Table[]): string {
     if (tables.length === 0) {
-      return 'No tables detected in the document.';
+      return '';
     }
 
-    const structuredTables = tables.map(table => ({
+    // Only include tables that are likely to contain relevant SOC1 data
+    const relevantTables = tables.filter(table => 
+      table.rows >= 2 && table.columns >= 2 && table.rawText.length > 50
+    );
+
+    if (relevantTables.length === 0) {
+      return '';
+    }
+
+    const structuredTables = relevantTables.map(table => ({
       id: table.id,
       page: table.pageNumber,
       dimensions: `${table.rows} rows × ${table.columns} columns`,
