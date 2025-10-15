@@ -256,14 +256,14 @@ export class OpenRouterAPI {
     try {
       onProgress?.(10, 'Preparing analysis request...');
 
-      // Optimized SOC1 analysis prompt - working version with token savings
+      // Enhanced SOC1 analysis prompt with table structure awareness
       const systemPrompt = this.config.useLocalModel 
-        ? `You are a SOC1 compliance analyst. Analyze the SOC1 report and extract the following information. Return your response in this EXACT JSON format with no additional text:
+        ? `You are a SOC1 compliance analyst. Analyze the SOC1 report and extract the following information. The document may contain structured tables marked with "=== DETECTED TABLES ===" sections. Use both the regular text and structured table data for analysis. Return your response in this EXACT JSON format with no additional text:
 
 {
   "executiveSummary": {
     "reportPeriod": "extract the report period from the document",
-    "serviceOrganization": "extract the service organization name", 
+    "serviceOrganization": "extract the service organization name",
     "auditor": "extract the auditor firm name",
     "opinion": "extract the opinion type (unqualified, qualified, adverse, disclaimer)"
   },
@@ -274,7 +274,8 @@ export class OpenRouterAPI {
       "type": "preventive or detective or corrective",
       "effectiveness": "ineffective or not_tested",
       "exceptions": ["list any exceptions found"],
-      "pageNumbers": [1]
+      "pageNumbers": [1],
+      "sourceTable": "table_id_if_from_structured_data"
     }
   ],
   "exclusions": [
@@ -282,7 +283,8 @@ export class OpenRouterAPI {
       "id": "EX-1", 
       "description": "describe what is excluded",
       "reason": "reason for exclusion",
-      "pageNumbers": [1]
+      "pageNumbers": [1],
+      "sourceTable": "table_id_if_from_structured_data"
     }
   ],
   "carveOuts": [
@@ -291,18 +293,33 @@ export class OpenRouterAPI {
       "description": "describe the sub-service provider carved out", 
       "provider": "provider name",
       "reason": "reason for carve-out",
-      "pageNumbers": [1]
+      "pageNumbers": [1],
+      "sourceTable": "table_id_if_from_structured_data"
+    }
+  ],
+  "detectedTables": [
+    {
+      "id": "table_id",
+      "page": 1,
+      "type": "control_matrix or exception_list or other",
+      "summary": "brief description of table contents",
+      "relevantData": ["key data points from table"]
     }
   ]
 }
 
 IMPORTANT: 
+- Pay special attention to structured table data marked with "=== DETECTED TABLES ==="
+- For table data, include the table ID in the "sourceTable" field
+- Extract control failures, exclusions, and carve-outs from both text and tables
+- Include detected tables in the "detectedTables" array with their type and summary
+- Use page numbers from the original text or table metadata
 - Start your response with { and end with }
 - Use proper JSON syntax with quotes around all keys and string values
 - If no control failures, exclusions, or carve-outs are found, use empty arrays []
 - Extract actual information from the document, don't use placeholder text
 - Return ONLY the JSON, no other text`
-        : `Extract SOC1 compliance issues. Return JSON only.
+        : `Extract SOC1 compliance issues from the document. The document may contain structured tables marked with "=== DETECTED TABLES ===" sections. Use both the regular text and structured table data for analysis. Return JSON only.
 
 {
   "executiveSummary": {
@@ -318,7 +335,8 @@ IMPORTANT:
       "type": "preventive or detective or corrective",
       "effectiveness": "ineffective or not_tested",
       "exceptions": ["list exceptions"],
-      "pageNumbers": [1]
+      "pageNumbers": [1],
+      "sourceTable": "table_id_if_from_structured_data"
     }
   ],
   "exclusions": [
@@ -326,7 +344,8 @@ IMPORTANT:
       "id": "exclusion identifier",
       "description": "what is excluded",
       "reason": "reason for exclusion",
-      "pageNumbers": [1]
+      "pageNumbers": [1],
+      "sourceTable": "table_id_if_from_structured_data"
     }
   ],
   "carveOuts": [
@@ -335,12 +354,28 @@ IMPORTANT:
       "description": "sub-service provider carved out",
       "provider": "provider name",
       "reason": "reason for carve-out",
-      "pageNumbers": [1]
+      "pageNumbers": [1],
+      "sourceTable": "table_id_if_from_structured_data"
+    }
+  ],
+  "detectedTables": [
+    {
+      "id": "table_id",
+      "page": 1,
+      "type": "control_matrix or exception_list or other",
+      "summary": "brief description of table contents",
+      "relevantData": ["key data points from table"]
     }
   ]
 }
 
-Only report control failures, exclusions, and carve-outs.`;
+Instructions:
+1. Pay special attention to structured table data marked with "=== DETECTED TABLES ==="
+2. For table data, include the table ID in the "sourceTable" field
+3. Extract control failures, exclusions, and carve-outs from both text and tables
+4. Include detected tables in the "detectedTables" array with their type and summary
+5. Use page numbers from the original text or table metadata
+6. Only report actual control failures, exclusions, and carve-outs found in the document.`;
 
       onProgress?.(30, 'Sending request to AI model...');
 

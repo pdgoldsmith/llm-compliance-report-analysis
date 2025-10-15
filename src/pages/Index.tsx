@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { UploadSection } from '@/components/UploadSection';
 import { ConfigurationPanel } from '@/components/ConfigurationPanel';
 import { AnalysisInterface } from '@/components/AnalysisInterface';
+import { ResultsDisplay } from '@/components/ResultsDisplay';
 import { FileSearch, Sparkles, Zap, CheckCircle } from 'lucide-react';
 import { PDFProcessor, PDFInfo } from '@/lib/pdfProcessor';
 import { OpenRouterAPI, APIConfig } from '@/lib/openRouterAPI';
@@ -30,8 +31,10 @@ const Index = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [currentTask, setCurrentTask] = useState('');
   const [analysisResults, setAnalysisResults] = useState<any[]>([]);
+  const [detectedTables, setDetectedTables] = useState<any[]>([]);
   const [pdfInfo, setPdfInfo] = useState<PDFInfo | null>(null);
   const [openRouterAPI, setOpenRouterAPI] = useState<OpenRouterAPI | null>(null);
+  const [showResults, setShowResults] = useState(false);
 
   // Update selected model when useLocalModel changes
   useEffect(() => {
@@ -155,14 +158,18 @@ const Index = () => {
       // Debug: Log PDF text length and first 500 characters
       console.log('PDF text length:', pdfData.text.length);
       console.log('PDF text preview:', pdfData.text.substring(0, 500));
+      console.log('Tables detected:', pdfData.tables.length);
       
       // Step 2: Analyze with AI
       setCurrentTask('Analyzing with AI model...');
       console.log('Starting AI analysis with model:', selectedModel);
       console.log('PDF text length for analysis:', pdfData.text.length);
       
+      // Combine text and structured table data for AI analysis
+      const enhancedText = pdfData.text + PDFProcessor.getTablesAsStructuredData(pdfData.tables);
+      
       const results = await openRouterAPI.analyzeSOC1Report(
-        pdfData.text,
+        enhancedText,
         selectedModel,
         (progress, message) => {
           setCurrentTask(message);
@@ -172,9 +179,18 @@ const Index = () => {
         }
       );
       
-      // Step 3: Generate Excel file
-      setCurrentTask('Generating Excel report...');
+      // Step 3: Store results and show them
+      setCurrentTask('Processing results...');
       console.log('Analysis results received:', results); // Debug log
+      console.log('Detected tables:', results.detectedTables || []); // Debug log
+      
+      // Store results for display
+      setAnalysisResults(results.findings || []);
+      setDetectedTables(results.detectedTables || []);
+      setShowResults(true);
+      
+      // Step 4: Generate Excel file
+      setCurrentTask('Generating Excel report...');
       
       // Transform the results to Excel format with page numbers and confidence scores
       const excelData: SOC1ExcelData = {
@@ -371,6 +387,22 @@ const Index = () => {
             />
           </div>
         </div>
+
+        {/* Results Section */}
+        {showResults && (
+          <div className="mt-12">
+            <ResultsDisplay
+              findings={analysisResults}
+              categories={[]}
+              detectedTables={detectedTables}
+              onExport={(format) => {
+                console.log(`Export requested: ${format}`);
+                // TODO: Implement export functionality
+              }}
+              isLoading={false}
+            />
+          </div>
+        )}
       </main>
     </div>
   );
