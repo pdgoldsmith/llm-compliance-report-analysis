@@ -165,17 +165,19 @@ const Index = () => {
       console.log('Starting AI analysis with model:', selectedModel);
       console.log('PDF text length for analysis:', pdfData.text.length);
       
-      // For now, let's use the original text to ensure it works
-      // TODO: Re-enable table enhancement once we verify it doesn't break the analysis
+      // Use HTML table enhancement - more natural for AI models
       const tableData = PDFProcessor.getTablesAsStructuredData(pdfData.tables);
-      const useEnhancedText = false; // Temporarily disabled
-      const analysisText = useEnhancedText && pdfData.tables.length > 0 ? pdfData.text + tableData : pdfData.text;
+      const useEnhancedText = true; // Re-enabled with HTML format
+      const analysisText = useEnhancedText && tableData.length > 0 ? pdfData.text + tableData : pdfData.text;
       
       // Debug: Log the text details
       console.log('Analysis text length:', analysisText.length);
       console.log('Table data length:', tableData.length);
       console.log('Tables detected:', pdfData.tables.length);
-      console.log('Using enhanced text:', useEnhancedText && pdfData.tables.length > 0);
+      console.log('Using enhanced text:', useEnhancedText && tableData.length > 0);
+      if (tableData.length > 0) {
+        console.log('HTML table preview:', tableData.substring(0, 1000));
+      }
       
       const results = await openRouterAPI.analyzeSOC1Report(
         analysisText,

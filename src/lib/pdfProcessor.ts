@@ -356,7 +356,7 @@ export class PDFProcessor {
   }
 
   /**
-   * Get structured table data as JSON for AI analysis
+   * Get structured table data as HTML for AI analysis
    */
   static getTablesAsStructuredData(tables: Table[]): string {
     if (tables.length === 0) {
@@ -372,15 +372,15 @@ export class PDFProcessor {
       return '';
     }
 
-    const structuredTables = relevantTables.map(table => ({
-      id: table.id,
-      page: table.pageNumber,
-      dimensions: `${table.rows} rows × ${table.columns} columns`,
-      data: this.convertTableToArray(table),
-      rawText: table.rawText
-    }));
+    let htmlTables = '\n\n=== DETECTED TABLES ===\n';
+    
+    relevantTables.forEach(table => {
+      htmlTables += `\nTable ${table.id} (Page ${table.pageNumber}):\n`;
+      htmlTables += this.convertTableToHTML(table);
+      htmlTables += '\n';
+    });
 
-    return `\n\n=== DETECTED TABLES ===\n${JSON.stringify(structuredTables, null, 2)}\n\n`;
+    return htmlTables + '\n';
   }
 
   /**
@@ -399,5 +399,26 @@ export class PDFProcessor {
     }
     
     return result;
+  }
+
+  /**
+   * Convert table to HTML format for AI analysis
+   */
+  private static convertTableToHTML(table: Table): string {
+    let html = '<table>\n';
+    
+    for (let row = 0; row < table.rows; row++) {
+      html += '  <tr>\n';
+      for (let col = 0; col < table.columns; col++) {
+        const cell = table.cells.find(c => c.row === row && c.col === col);
+        const cellText = cell ? cell.text.trim() : '';
+        const tag = row === 0 ? 'th' : 'td'; // Use th for header row
+        html += `    <${tag}>${cellText}</${tag}>\n`;
+      }
+      html += '  </tr>\n';
+    }
+    
+    html += '</table>';
+    return html;
   }
 }

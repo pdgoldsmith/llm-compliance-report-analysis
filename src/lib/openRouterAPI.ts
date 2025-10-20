@@ -256,9 +256,9 @@ export class OpenRouterAPI {
     try {
       onProgress?.(10, 'Preparing analysis request...');
 
-      // Enhanced SOC1 analysis prompt with table structure awareness
+      // Enhanced SOC1 analysis prompt with HTML table structure awareness
       const systemPrompt = this.config.useLocalModel 
-        ? `You are a SOC1 compliance analyst. Analyze the SOC1 report and extract the following information. The document may contain structured tables marked with "=== DETECTED TABLES ===" sections. Use both the regular text and structured table data for analysis. Return your response in this EXACT JSON format with no additional text:
+        ? `You are a SOC1 compliance analyst. Analyze the SOC1 report and extract the following information. The document may contain HTML tables in "=== DETECTED TABLES ===" sections. These tables preserve the original structure and relationships. Use both the regular text and HTML table data for analysis. Return your response in this EXACT JSON format with no additional text:
 
 {
   "executiveSummary": {
@@ -309,9 +309,10 @@ export class OpenRouterAPI {
 }
 
 IMPORTANT: 
-- Pay special attention to structured table data marked with "=== DETECTED TABLES ==="
+- Pay special attention to HTML tables in "=== DETECTED TABLES ===" sections
+- HTML tables preserve the original structure with <table>, <tr>, <th>, and <td> tags
 - For table data, include the table ID in the "sourceTable" field
-- Extract control failures, exclusions, and carve-outs from both text and tables
+- Extract control failures, exclusions, and carve-outs from both text and HTML tables
 - Include detected tables in the "detectedTables" array with their type and summary
 - Use page numbers from the original text or table metadata
 - Start your response with { and end with }
@@ -319,7 +320,7 @@ IMPORTANT:
 - If no control failures, exclusions, or carve-outs are found, use empty arrays []
 - Extract actual information from the document, don't use placeholder text
 - Return ONLY the JSON, no other text`
-        : `Extract SOC1 compliance issues from the document. The document may contain structured tables marked with "=== DETECTED TABLES ===" sections. Use both the regular text and structured table data for analysis. Return JSON only.
+        : `Extract SOC1 compliance issues from the document. The document may contain HTML tables in "=== DETECTED TABLES ===" sections. These tables preserve the original structure and relationships. Use both the regular text and HTML table data for analysis. Return JSON only.
 
 {
   "executiveSummary": {
@@ -370,12 +371,13 @@ IMPORTANT:
 }
 
 Instructions:
-1. Pay special attention to structured table data marked with "=== DETECTED TABLES ==="
-2. For table data, include the table ID in the "sourceTable" field
-3. Extract control failures, exclusions, and carve-outs from both text and tables
-4. Include detected tables in the "detectedTables" array with their type and summary
-5. Use page numbers from the original text or table metadata
-6. Only report actual control failures, exclusions, and carve-outs found in the document.`;
+1. Pay special attention to HTML tables in "=== DETECTED TABLES ===" sections
+2. HTML tables preserve the original structure with <table>, <tr>, <th>, and <td> tags
+3. For table data, include the table ID in the "sourceTable" field
+4. Extract control failures, exclusions, and carve-outs from both text and HTML tables
+5. Include detected tables in the "detectedTables" array with their type and summary
+6. Use page numbers from the original text or table metadata
+7. Only report actual control failures, exclusions, and carve-outs found in the document.`;
 
       onProgress?.(30, 'Sending request to AI model...');
 
