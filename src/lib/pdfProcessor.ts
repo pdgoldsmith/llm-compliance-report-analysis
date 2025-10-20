@@ -411,7 +411,7 @@ export class PDFProcessor {
       html += '  <tr>\n';
       for (let col = 0; col < table.columns; col++) {
         const cell = table.cells.find(c => c.row === row && c.col === col);
-        const cellText = cell ? cell.text.trim() : '';
+        const cellText = cell ? this.escapeHtml(cell.text.trim()) : '';
         const tag = row === 0 ? 'th' : 'td'; // Use th for header row
         html += `    <${tag}>${cellText}</${tag}>\n`;
       }
@@ -420,5 +420,17 @@ export class PDFProcessor {
     
     html += '</table>';
     return html;
+  }
+
+  /**
+   * Escape HTML special characters
+   */
+  private static escapeHtml(text: string): string {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 }
