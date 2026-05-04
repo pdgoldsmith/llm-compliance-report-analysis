@@ -26,11 +26,21 @@ interface Finding {
   category: string;
   dataType: string;
   critical?: boolean;
+  sourceTable?: string;
+}
+
+interface DetectedTable {
+  id: string;
+  page: number;
+  type: string;
+  summary: string;
+  relevantData: string[];
 }
 
 interface ResultsDisplayProps {
   findings: Finding[];
   categories: any[];
+  detectedTables?: DetectedTable[];
   onExport: (format: 'json' | 'csv' | 'pdf') => void;
   isLoading: boolean;
 }
@@ -85,6 +95,7 @@ const mockFindings: Finding[] = [
 export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({
   findings = mockFindings,
   categories = [],
+  detectedTables = [],
   onExport,
   isLoading
 }) => {
@@ -236,16 +247,75 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({
 
       {/* Results Content */}
       <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="all">All ({findings.length})</TabsTrigger>
           <TabsTrigger value="basic_info">Basic Info</TabsTrigger>
           <TabsTrigger value="control_environment">Controls</TabsTrigger>
           <TabsTrigger value="exceptions">Exceptions</TabsTrigger>
           <TabsTrigger value="subservice_organizations">Subservice</TabsTrigger>
+          <TabsTrigger value="tables">Tables ({detectedTables.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value={selectedCategory} className="space-y-4">
-          {Object.entries(groupedFindings).length === 0 ? (
+          {selectedCategory === 'tables' ? (
+            // Tables tab content
+            detectedTables.length === 0 ? (
+              <Card className="bg-gradient-card border shadow-card">
+                <div className="p-8 text-center">
+                  <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-medium text-foreground mb-2">No Tables Detected</h3>
+                  <p className="text-muted-foreground">No structured tables were found in the document</p>
+                </div>
+              </Card>
+            ) : (
+              <Card className="bg-gradient-card border shadow-card">
+                <div className="p-6">
+                  <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+                    Detected Tables
+                    <Badge variant="secondary">{detectedTables.length}</Badge>
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    {detectedTables.map((table) => (
+                      <div key={table.id} className="border border-border rounded-lg p-4">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h4 className="font-medium text-foreground">{table.id}</h4>
+                              <Badge variant="outline" className="text-xs">
+                                {table.type}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground mb-2">{table.summary}</p>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 ml-4">
+                            <Badge variant="secondary" className="text-xs">
+                              Page {table.page}
+                            </Badge>
+                          </div>
+                        </div>
+
+                        {table.relevantData.length > 0 && (
+                          <div className="mt-3">
+                            <h5 className="text-sm font-medium text-foreground mb-2">Key Data Points:</h5>
+                            <ul className="space-y-1">
+                              {table.relevantData.map((data, index) => (
+                                <li key={index} className="text-sm text-muted-foreground flex items-center gap-2">
+                                  <div className="w-1.5 h-1.5 rounded-full bg-primary"></div>
+                                  {data}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            )
+          ) : Object.entries(groupedFindings).length === 0 ? (
             <Card className="bg-gradient-card border shadow-card">
               <div className="p-8 text-center">
                 <FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
@@ -273,6 +343,11 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({
                                 <Badge variant="destructive" className="text-xs">
                                   <AlertTriangle className="w-3 h-3 mr-1" />
                                   Critical
+                                </Badge>
+                              )}
+                              {finding.sourceTable && (
+                                <Badge variant="outline" className="text-xs">
+                                  From Table: {finding.sourceTable}
                                 </Badge>
                               )}
                             </div>

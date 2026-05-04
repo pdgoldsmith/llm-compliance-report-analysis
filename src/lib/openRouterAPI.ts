@@ -181,9 +181,9 @@ export class OpenRouterAPI {
   constructor(config: APIConfig) {
     this.config = config;
     
-    // Use backend proxy for local models, direct connection for OpenRouter
+    // Use backend proxy for local models to avoid CORS issues, direct connection for OpenRouter
     if (config.useLocalModel) {
-      this.baseURL = '/api/local'; // Frontend will proxy to backend
+      this.baseURL = '/api/local'; // Use backend proxy to avoid CORS
     } else {
       this.baseURL = 'https://openrouter.ai/api/v1';
     }
@@ -200,15 +200,23 @@ export class OpenRouterAPI {
         'Content-Type': 'application/json',
       };
 
-      // For local endpoints, don't include Authorization header
-      if (!this.config.useLocalModel) {
+      // Include Authorization header for both local and remote endpoints
+      if (this.config.useLocalModel) {
+        // For local endpoints, use a dummy API key if none provided
+        headers['Authorization'] = `Bearer ${this.config.apiKey || 'dummy-key'}`;
+      } else {
         headers['Authorization'] = `Bearer ${this.config.apiKey}`;
       }
 
       // Use the correct endpoint based on provider
       const endpoint = this.config.useLocalModel ? '/v1/models' : '/models';
       
-      const response = await fetch(`${this.baseURL}${endpoint}`, {
+      // Add target URL parameter for backend proxy
+      const url = this.config.useLocalModel 
+        ? `${this.baseURL}${endpoint}?target=${encodeURIComponent(this.config.localEndpointUrl || 'http://localhost:11434')}`
+        : `${this.baseURL}${endpoint}`;
+      
+      const response = await fetch(url, {
         headers,
       });
 
@@ -256,14 +264,14 @@ export class OpenRouterAPI {
     try {
       onProgress?.(10, 'Preparing analysis request...');
 
-      // Optimized SOC1 analysis prompt - working version with token savings
+      // Enhanced SOC1 analysis prompt with HTML table structure awareness
       const systemPrompt = this.config.useLocalModel 
-        ? `You are a SOC1 compliance analyst. Analyze the SOC1 report and extract the following information. Return your response in this EXACT JSON format with no additional text:
+        ? `You are a SOC1 compliance analyst. Analyze the SOC1 report and extract the following information. The document may contain HTML tables in "=== DETECTED TABLES ===" sections. These tables preserve the original structure and relationships. Use both the regular text and HTML table data for analysis. Return your response in this EXACT JSON format with no additional text:
 
 {
   "executiveSummary": {
     "reportPeriod": "extract the report period from the document",
-    "serviceOrganization": "extract the service organization name", 
+    "serviceOrganization": "extract the service organization name",
     "auditor": "extract the auditor firm name",
     "opinion": "extract the opinion type (unqualified, qualified, adverse, disclaimer)"
   },
@@ -274,7 +282,8 @@ export class OpenRouterAPI {
       "type": "preventive or detective or corrective",
       "effectiveness": "ineffective or not_tested",
       "exceptions": ["list any exceptions found"],
-      "pageNumbers": [1]
+      "pageNumbers": [1],
+      "sourceTable": "table_id_if_from_structured_data"
     }
   ],
   "exclusions": [
@@ -282,7 +291,8 @@ export class OpenRouterAPI {
       "id": "EX-1", 
       "description": "describe what is excluded",
       "reason": "reason for exclusion",
-      "pageNumbers": [1]
+      "pageNumbers": [1],
+      "sourceTable": "table_id_if_from_structured_data"
     }
   ],
   "carveOuts": [
@@ -291,18 +301,34 @@ export class OpenRouterAPI {
       "description": "describe the sub-service provider carved out", 
       "provider": "provider name",
       "reason": "reason for carve-out",
-      "pageNumbers": [1]
+      "pageNumbers": [1],
+      "sourceTable": "table_id_if_from_structured_data"
+    }
+  ],
+  "detectedTables": [
+    {
+      "id": "table_id",
+      "page": 1,
+      "type": "control_matrix or exception_list or other",
+      "summary": "brief description of table contents",
+      "relevantData": ["key data points from table"]
     }
   ]
 }
 
 IMPORTANT: 
+- Pay special attention to HTML tables in "=== DETECTED TABLES ===" sections
+- HTML tables preserve the original structure with <table>, <tr>, <th>, and <td> tags
+- For table data, include the table ID in the "sourceTable" field
+- Extract control failures, exclusions, and carve-outs from both text and HTML tables
+- Include detected tables in the "detectedTables" array with their type and summary
+- Use page numbers from the original text or table metadata
 - Start your response with { and end with }
 - Use proper JSON syntax with quotes around all keys and string values
 - If no control failures, exclusions, or carve-outs are found, use empty arrays []
 - Extract actual information from the document, don't use placeholder text
 - Return ONLY the JSON, no other text`
-        : `Extract SOC1 compliance issues. Return JSON only.
+        : `Extract SOC1 compliance issues from the document. The document may contain HTML tables in "=== DETECTED TABLES ===" sections. These tables preserve the original structure and relationships. Use both the regular text and HTML table data for analysis. Return JSON only.
 
 {
   "executiveSummary": {
@@ -318,7 +344,8 @@ IMPORTANT:
       "type": "preventive or detective or corrective",
       "effectiveness": "ineffective or not_tested",
       "exceptions": ["list exceptions"],
-      "pageNumbers": [1]
+      "pageNumbers": [1],
+      "sourceTable": "table_id_if_from_structured_data"
     }
   ],
   "exclusions": [
@@ -326,7 +353,8 @@ IMPORTANT:
       "id": "exclusion identifier",
       "description": "what is excluded",
       "reason": "reason for exclusion",
-      "pageNumbers": [1]
+      "pageNumbers": [1],
+      "sourceTable": "table_id_if_from_structured_data"
     }
   ],
   "carveOuts": [
@@ -335,12 +363,29 @@ IMPORTANT:
       "description": "sub-service provider carved out",
       "provider": "provider name",
       "reason": "reason for carve-out",
-      "pageNumbers": [1]
+      "pageNumbers": [1],
+      "sourceTable": "table_id_if_from_structured_data"
+    }
+  ],
+  "detectedTables": [
+    {
+      "id": "table_id",
+      "page": 1,
+      "type": "control_matrix or exception_list or other",
+      "summary": "brief description of table contents",
+      "relevantData": ["key data points from table"]
     }
   ]
 }
 
-Only report control failures, exclusions, and carve-outs.`;
+Instructions:
+1. Pay special attention to HTML tables in "=== DETECTED TABLES ===" sections
+2. HTML tables preserve the original structure with <table>, <tr>, <th>, and <td> tags
+3. For table data, include the table ID in the "sourceTable" field
+4. Extract control failures, exclusions, and carve-outs from both text and HTML tables
+5. Include detected tables in the "detectedTables" array with their type and summary
+6. Use page numbers from the original text or table metadata
+7. Only report actual control failures, exclusions, and carve-outs found in the document.`;
 
       onProgress?.(30, 'Sending request to AI model...');
 
@@ -348,8 +393,11 @@ Only report control failures, exclusions, and carve-outs.`;
         'Content-Type': 'application/json',
       };
 
-      // For local endpoints, don't include Authorization header
-      if (!this.config.useLocalModel) {
+      // Include Authorization header for both local and remote endpoints
+      if (this.config.useLocalModel) {
+        // For local endpoints, use a dummy API key if none provided
+        headers['Authorization'] = `Bearer ${this.config.apiKey || 'dummy-key'}`;
+      } else {
         headers['Authorization'] = `Bearer ${this.config.apiKey}`;
         headers['HTTP-Referer'] = window.location.origin;
         headers['X-Title'] = 'SOC1 Compliance Analyzer';
@@ -363,7 +411,12 @@ Only report control failures, exclusions, and carve-outs.`;
       // Use the correct endpoint based on provider
       const endpoint = this.config.useLocalModel ? '/v1/chat/completions' : '/chat/completions';
 
-      const response = await fetch(`${this.baseURL}${endpoint}`, {
+      // Add target URL parameter for backend proxy
+      const url = this.config.useLocalModel 
+        ? `${this.baseURL}${endpoint}?target=${encodeURIComponent(this.config.localEndpointUrl || 'http://localhost:11434')}`
+        : `${this.baseURL}${endpoint}`;
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -378,24 +431,25 @@ Only report control failures, exclusions, and carve-outs.`;
               content: `Please analyze this SOC1 report:\n\n${pdfText}`
             }
           ],
-          temperature: 0.1,
-          max_tokens: 4000,
-          // Ensure non-streaming responses from local OpenAI-compatible servers
-          // Some local servers default to streaming which leaves message.content empty
-          stream: false,
-          // Hint JSON mode where supported (ignored by servers that don't support it)
-          response_format: { type: 'json_object' }
+          max_tokens: 2000,
+          stream: false
         }),
       });
 
       onProgress?.(70, 'Processing AI response...');
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        let errorData: any = {};
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          // If we can't parse the error response, use status text
+          console.error('Failed to parse error response:', e);
+        }
         
         // Check for specific error types
         if (response.status === 400) {
-          const errorMessage = errorData.error?.message || '';
+          const errorMessage = errorData.error?.message || errorData.message || '';
           
           // Check for token length related errors
           if (errorMessage.includes('token') || 
@@ -412,20 +466,36 @@ Only report control failures, exclusions, and carve-outs.`;
           }
         }
         
+        // Check for serialization errors (422 Unprocessable Entity)
+        if (response.status === 422) {
+          throw new Error('The AI service encountered a serialization error. This may be a compatibility issue with the local LLM server.');
+        }
+        
         // Check for server errors that might indicate connection issues
         if (response.status >= 500) {
           throw new Error('The AI service is temporarily unavailable. Please try again later.');
         }
         
-        throw new Error(`API request failed: ${response.status} - ${errorData.error?.message || response.statusText}`);
+        throw new Error(`API request failed: ${response.status} - ${errorData.error?.message || errorData.message || response.statusText}`);
       }
 
-      const data: any = await response.json();
+      let data: any;
+      try {
+        data = await response.json();
+      } catch (e) {
+        throw new Error('Failed to parse response from AI service. The response may be malformed.');
+      }
       
       onProgress?.(90, 'Parsing results...');
 
       if (!data.choices || data.choices.length === 0) {
         throw new Error('No response from AI model');
+      }
+
+      // Extract the content safely
+      const choice = data.choices[0];
+      if (!choice || !choice.message || !choice.message.content) {
+        throw new Error('Invalid response format from AI model');
       }
 
       // Safe JSON stringification that handles circular references and large objects
@@ -469,7 +539,9 @@ Only report control failures, exclusions, and carve-outs.`;
       // Normalize content across various OpenAI-compatible servers
       const normalizeContent = (payload: any): string => {
         try {
-          const choice = payload?.choices?.[0] ?? {};
+          // Convert to plain object to avoid serialization issues
+          const plainPayload = JSON.parse(JSON.stringify(payload));
+          const choice = plainPayload?.choices?.[0] ?? {};
           const message = choice.message ?? {};
 
           // Common: string content
@@ -496,8 +568,9 @@ Only report control failures, exclusions, and carve-outs.`;
           }
 
           // Fallback: safely stringify the full payload (last resort)
-          return safeStringify(payload);
-        } catch (_e) {
+          return safeStringify(plainPayload);
+        } catch (e) {
+          console.error('Error normalizing content:', e);
           return '';
         }
       };

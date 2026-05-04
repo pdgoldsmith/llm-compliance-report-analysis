@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { UploadSection } from '@/components/UploadSection';
 import { ConfigurationPanel } from '@/components/ConfigurationPanel';
 import { AnalysisInterface } from '@/components/AnalysisInterface';
+import { ResultsDisplay } from '@/components/ResultsDisplay';
 import { FileSearch, Sparkles, Zap, CheckCircle } from 'lucide-react';
 import { PDFProcessor, PDFInfo } from '@/lib/pdfProcessor';
 import { OpenRouterAPI, APIConfig } from '@/lib/openRouterAPI';
@@ -16,8 +17,12 @@ const Index = () => {
   
   // Local model configuration (declared first since it's used in selectedModel initialization)
   const [useLocalModel, setUseLocalModel] = useState(true);
-  const [localEndpointUrl, setLocalEndpointUrl] = useState('http://localhost:11434/v1');
-  const [localModelName, setLocalModelName] = useState('llama3.1:8b');
+  const [localEndpointUrl, setLocalEndpointUrl] = useState(() => {
+    return localStorage.getItem('localEndpointUrl') || 'http://localhost:11434/v1';
+  });
+  const [localModelName, setLocalModelName] = useState(() => {
+    return localStorage.getItem('localModelName') || 'llama3.1:8b';
+  });
   
   // State management
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -30,13 +35,25 @@ const Index = () => {
   const [totalPages, setTotalPages] = useState(0);
   const [currentTask, setCurrentTask] = useState('');
   const [analysisResults, setAnalysisResults] = useState<any[]>([]);
+  const [detectedTables, setDetectedTables] = useState<any[]>([]);
   const [pdfInfo, setPdfInfo] = useState<PDFInfo | null>(null);
   const [openRouterAPI, setOpenRouterAPI] = useState<OpenRouterAPI | null>(null);
+  const [showResults, setShowResults] = useState(false);
 
   // Update selected model when useLocalModel changes
   useEffect(() => {
     setSelectedModel(getDefaultModel(useLocalModel));
   }, [useLocalModel]);
+
+  // Save localEndpointUrl to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('localEndpointUrl', localEndpointUrl);
+  }, [localEndpointUrl]);
+
+  // Save localModelName to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('localModelName', localModelName);
+  }, [localModelName]);
 
   const handleFileUpload = async (file: File) => {
     try {
@@ -155,14 +172,29 @@ const Index = () => {
       // Debug: Log PDF text length and first 500 characters
       console.log('PDF text length:', pdfData.text.length);
       console.log('PDF text preview:', pdfData.text.substring(0, 500));
+      console.log('Tables detected:', pdfData.tables.length);
       
       // Step 2: Analyze with AI
       setCurrentTask('Analyzing with AI model...');
       console.log('Starting AI analysis with model:', selectedModel);
       console.log('PDF text length for analysis:', pdfData.text.length);
       
+      // Use HTML table enhancement - more natural for AI models
+      const tableData = PDFProcessor.getTablesAsStructuredData(pdfData.tables);
+      const useEnhancedText = true; // Re-enabled with HTML format
+      const analysisText = useEnhancedText && tableData.length > 0 ? pdfData.text + tableData : pdfData.text;
+      
+      // Debug: Log the text details
+      console.log('Analysis text length:', analysisText.length);
+      console.log('Table data length:', tableData.length);
+      console.log('Tables detected:', pdfData.tables.length);
+      console.log('Using enhanced text:', useEnhancedText && tableData.length > 0);
+      if (tableData.length > 0) {
+        console.log('HTML table preview:', tableData.substring(0, 1000));
+      }
+      
       const results = await openRouterAPI.analyzeSOC1Report(
-        pdfData.text,
+        analysisText,
         selectedModel,
         (progress, message) => {
           setCurrentTask(message);
@@ -172,9 +204,18 @@ const Index = () => {
         }
       );
       
-      // Step 3: Generate Excel file
-      setCurrentTask('Generating Excel report...');
+      // Step 3: Store results and show them
+      setCurrentTask('Processing results...');
       console.log('Analysis results received:', results); // Debug log
+      console.log('Detected tables:', results.detectedTables || []); // Debug log
+      
+      // Store results for display
+      setAnalysisResults(results.findings || []);
+      setDetectedTables(results.detectedTables || []);
+      setShowResults(true);
+      
+      // Step 4: Generate Excel file
+      setCurrentTask('Generating Excel report...');
       
       // Transform the results to Excel format with page numbers and confidence scores
       const excelData: SOC1ExcelData = {
@@ -371,6 +412,22 @@ const Index = () => {
             />
           </div>
         </div>
+
+        {/* Results Section */}
+        {showResults && (
+          <div className="mt-12">
+            <ResultsDisplay
+              findings={analysisResults}
+              categories={[]}
+              detectedTables={detectedTables}
+              onExport={(format) => {
+                console.log(`Export requested: ${format}`);
+                // TODO: Implement export functionality
+              }}
+              isLoading={false}
+            />
+          </div>
+        )}
       </main>
     </div>
   );
