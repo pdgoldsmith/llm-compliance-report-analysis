@@ -17,8 +17,12 @@ const Index = () => {
   
   // Local model configuration (declared first since it's used in selectedModel initialization)
   const [useLocalModel, setUseLocalModel] = useState(true);
-  const [localEndpointUrl, setLocalEndpointUrl] = useState('http://localhost:11434/v1');
-  const [localModelName, setLocalModelName] = useState('llama3.1:8b');
+  const [localEndpointUrl, setLocalEndpointUrl] = useState(() => {
+    return localStorage.getItem('localEndpointUrl') || 'http://localhost:11434/v1';
+  });
+  const [localModelName, setLocalModelName] = useState(() => {
+    return localStorage.getItem('localModelName') || 'llama3.1:8b';
+  });
   
   // State management
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
@@ -40,6 +44,16 @@ const Index = () => {
   useEffect(() => {
     setSelectedModel(getDefaultModel(useLocalModel));
   }, [useLocalModel]);
+
+  // Save localEndpointUrl to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('localEndpointUrl', localEndpointUrl);
+  }, [localEndpointUrl]);
+
+  // Save localModelName to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('localModelName', localModelName);
+  }, [localModelName]);
 
   const handleFileUpload = async (file: File) => {
     try {

@@ -181,9 +181,9 @@ export class OpenRouterAPI {
   constructor(config: APIConfig) {
     this.config = config;
     
-    // Use backend proxy for local models, direct connection for OpenRouter
+    // Use backend proxy for local models to avoid CORS issues, direct connection for OpenRouter
     if (config.useLocalModel) {
-      this.baseURL = '/api/local'; // Frontend will proxy to backend
+      this.baseURL = '/api/local'; // Use backend proxy to avoid CORS
     } else {
       this.baseURL = 'https://openrouter.ai/api/v1';
     }
@@ -200,15 +200,23 @@ export class OpenRouterAPI {
         'Content-Type': 'application/json',
       };
 
-      // For local endpoints, don't include Authorization header
-      if (!this.config.useLocalModel) {
+      // Include Authorization header for both local and remote endpoints
+      if (this.config.useLocalModel) {
+        // For local endpoints, use a dummy API key if none provided
+        headers['Authorization'] = `Bearer ${this.config.apiKey || 'dummy-key'}`;
+      } else {
         headers['Authorization'] = `Bearer ${this.config.apiKey}`;
       }
 
       // Use the correct endpoint based on provider
       const endpoint = this.config.useLocalModel ? '/v1/models' : '/models';
       
-      const response = await fetch(`${this.baseURL}${endpoint}`, {
+      // Add target URL parameter for backend proxy
+      const url = this.config.useLocalModel 
+        ? `${this.baseURL}${endpoint}?target=${encodeURIComponent(this.config.localEndpointUrl || 'http://localhost:11434')}`
+        : `${this.baseURL}${endpoint}`;
+      
+      const response = await fetch(url, {
         headers,
       });
 
@@ -385,8 +393,11 @@ Instructions:
         'Content-Type': 'application/json',
       };
 
-      // For local endpoints, don't include Authorization header
-      if (!this.config.useLocalModel) {
+      // Include Authorization header for both local and remote endpoints
+      if (this.config.useLocalModel) {
+        // For local endpoints, use a dummy API key if none provided
+        headers['Authorization'] = `Bearer ${this.config.apiKey || 'dummy-key'}`;
+      } else {
         headers['Authorization'] = `Bearer ${this.config.apiKey}`;
         headers['HTTP-Referer'] = window.location.origin;
         headers['X-Title'] = 'SOC1 Compliance Analyzer';
@@ -400,7 +411,12 @@ Instructions:
       // Use the correct endpoint based on provider
       const endpoint = this.config.useLocalModel ? '/v1/chat/completions' : '/chat/completions';
 
-      const response = await fetch(`${this.baseURL}${endpoint}`, {
+      // Add target URL parameter for backend proxy
+      const url = this.config.useLocalModel 
+        ? `${this.baseURL}${endpoint}?target=${encodeURIComponent(this.config.localEndpointUrl || 'http://localhost:11434')}`
+        : `${this.baseURL}${endpoint}`;
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -415,24 +431,25 @@ Instructions:
               content: `Please analyze this SOC1 report:\n\n${pdfText}`
             }
           ],
-          temperature: 0.1,
-          max_tokens: 4000,
-          // Ensure non-streaming responses from local OpenAI-compatible servers
-          // Some local servers default to streaming which leaves message.content empty
-          stream: false,
-          // Hint JSON mode where supported (ignored by servers that don't support it)
-          response_format: { type: 'json_object' }
+          max_tokens: 2000,
+          stream: false
         }),
       });
 
       onProgress?.(70, 'Processing AI response...');
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        let errorData: any = {};
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          // If we can't parse the error response, use status text
+          console.error('Failed to parse error response:', e);
+        }
         
         // Check for specific error types
         if (response.status === 400) {
-          const errorMessage = errorData.error?.message || '';
+          const errorMessage = errorData.error?.message || errorData.message || '';
           
           // Check for token length related errors
           if (errorMessage.includes('token') || 
@@ -449,20 +466,36 @@ Instructions:
           }
         }
         
+        // Check for serialization errors (422 Unprocessable Entity)
+        if (response.status === 422) {
+          throw new Error('The AI service encountered a serialization error. This may be a compatibility issue with the local LLM server.');
+        }
+        
         // Check for server errors that might indicate connection issues
         if (response.status >= 500) {
           throw new Error('The AI service is temporarily unavailable. Please try again later.');
         }
         
-        throw new Error(`API request failed: ${response.status} - ${errorData.error?.message || response.statusText}`);
+        throw new Error(`API request failed: ${response.status} - ${errorData.error?.message || errorData.message || response.statusText}`);
       }
 
-      const data: any = await response.json();
+      let data: any;
+      try {
+        data = await response.json();
+      } catch (e) {
+        throw new Error('Failed to parse response from AI service. The response may be malformed.');
+      }
       
       onProgress?.(90, 'Parsing results...');
 
       if (!data.choices || data.choices.length === 0) {
         throw new Error('No response from AI model');
+      }
+
+      // Extract the content safely
+      const choice = data.choices[0];
+      if (!choice || !choice.message || !choice.message.content) {
+        throw new Error('Invalid response format from AI model');
       }
 
       // Safe JSON stringification that handles circular references and large objects
@@ -506,7 +539,9 @@ Instructions:
       // Normalize content across various OpenAI-compatible servers
       const normalizeContent = (payload: any): string => {
         try {
-          const choice = payload?.choices?.[0] ?? {};
+          // Convert to plain object to avoid serialization issues
+          const plainPayload = JSON.parse(JSON.stringify(payload));
+          const choice = plainPayload?.choices?.[0] ?? {};
           const message = choice.message ?? {};
 
           // Common: string content
@@ -533,8 +568,9 @@ Instructions:
           }
 
           // Fallback: safely stringify the full payload (last resort)
-          return safeStringify(payload);
-        } catch (_e) {
+          return safeStringify(plainPayload);
+        } catch (e) {
+          console.error('Error normalizing content:', e);
           return '';
         }
       };

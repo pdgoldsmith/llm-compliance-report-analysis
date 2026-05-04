@@ -44,14 +44,32 @@ app.get('/health', (req, res) => {
 // Proxy endpoint for local LLM API calls
 app.all('/api/local/*', async (req, res) => {
   try {
-    const localLLMUrl = process.env.LOCAL_LLM_URL || 'http://localhost:11434';
+    // Get the target URL from query parameter, header, or environment variable
+    const targetUrlParam = req.query.target || req.headers['x-target-url'];
+    const localLLMUrl = targetUrlParam || process.env.LOCAL_LLM_URL || 'http://localhost:11434';
     const timeout = parseInt(process.env.LOCAL_LLM_TIMEOUT) || 300000; // 5 minutes default
     
     // Extract the path after /api/local/
     const apiPath = req.path.replace('/api/local', '');
-    const targetUrl = `${localLLMUrl}${apiPath}`;
+    
+    // Handle URLs that already have /v1 or /api/v1 suffix
+    let targetUrl;
+    if (localLLMUrl.endsWith('/api/v1')) {
+      // Remove /v1 from the path since /api/v1 is already in the target URL
+      const cleanPath = apiPath.replace('/v1', '');
+      targetUrl = `${localLLMUrl}${cleanPath}`;
+    } else if (localLLMUrl.endsWith('/v1')) {
+      // Remove /v1 from the path since /v1 is already in the target URL
+      const cleanPath = apiPath.replace('/v1', '');
+      targetUrl = `${localLLMUrl}${cleanPath}`;
+    } else {
+      targetUrl = `${localLLMUrl}${apiPath}`;
+    }
     
     console.log(`[${new Date().toISOString()}] Proxying ${req.method} request to: ${targetUrl}`);
+    console.log(`[${new Date().toISOString()}] Original localLLMUrl: ${localLLMUrl}`);
+    console.log(`[${new Date().toISOString()}] API path: ${apiPath}`);
+    console.log(`[${new Date().toISOString()}] Request body:`, JSON.stringify(req.body, null, 2));
     
     // Forward the request to the local LLM server
     const response = await axios({
@@ -81,6 +99,9 @@ app.all('/api/local/*', async (req, res) => {
     res.send(response.data);
     
     console.log(`[${new Date().toISOString()}] Response: ${response.status} ${response.statusText}`);
+    if (response.status >= 400) {
+      console.log(`[${new Date().toISOString()}] Error response body:`, JSON.stringify(response.data, null, 2));
+    }
     
   } catch (error) {
     console.error(`[${new Date().toISOString()}] Proxy error:`, error.message);
